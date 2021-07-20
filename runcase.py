@@ -302,6 +302,8 @@ parser.add_option("--fates_paramfile", dest="fates_paramfile", default="", \
                   help = 'Fates parameter file to use')
 parser.add_option("--var_soilthickness", dest="var_soilthickness", default=False, \
                   help = 'Use variable soil thickness from surface data', action="store_true")
+parser.add_option("--not_dobudgets", dest="not_dobudgets", default=False, \
+                  help = 'Turn off do_budgets option in new ELM', action="store_true")
 
 #Changed by Ming for mesabi
 parser.add_option("--archiveroot", dest="archiveroot", default='', \
@@ -1537,8 +1539,10 @@ for i in range(1,int(options.ninst)+1):
         elif options.metdir != 'none':
             if (options.daymet4 and options.gswp3):
                 output.write(" metdata_type = 'gswp3_daymet4'\n")
+            elif (options.daymet and options.gswp3):
+                output.write(" metdata_type = 'gswp3v1_daymet'\n")
             else:
-                output.write(" metdata_type = 'gswp3v1_daymet'\n") # This needs to be updated for other types
+                output.write(" metdata_type = 'gswp3'\n") # This needs to be updated for other types
             output.write(" metdata_bypass = '%s'\n"%options.metdir)
             
         # not reanalysis
@@ -1586,6 +1590,11 @@ for i in range(1,int(options.ninst)+1):
       if (options.pflotran_inputdir!=''):
         output.write(" pflotran_prefix = '"+str(options.pflotran_prefix)+"'\n")
     #------------------------------------------------
+    # in new ELM, there is option to do grid-cell level budget every time-step and printing monthly/annually
+    # it's expensive for computing
+    if (options.not_dobudgets):
+        output.write(" do_budgets = .false. \n")
+        
     output.close()
 
 
