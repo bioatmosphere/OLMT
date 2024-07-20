@@ -943,6 +943,7 @@ for row in AFdatareader:
                     sys.exit(1)
 
         #Build Cases
+        #Case 1: ad_spinup case
         if (options.noad == False):
             print('\n\nSetting up ad_spinup case\n')
             if (sitenum == 0):
@@ -961,7 +962,7 @@ for row in AFdatareader:
           if (sitenum == 0):
             ad_case_firstsite = ad_case
 
-
+        #Case 2: final spinup case
         if (options.nofnsp == False):
             print('\n\nSetting up final spinup case\n')
             if (sitenum == 0):
@@ -987,7 +988,7 @@ for row in AFdatareader:
             if (nutrients == 'CNP' and not options.ad_Pinit):
                 fin_case_firstsite = fin_case_firstsite.replace('1850CN','1850CNP')
 
-
+        #Case 3: trasient case
         if (options.notrans == False):
             print('\n\nSetting up transient case\n')
             if (sitenum == 0):
