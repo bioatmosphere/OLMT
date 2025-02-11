@@ -16,17 +16,18 @@ runroot = rootdir+'/e3sm_run'
 modelroot = os.environ['HOME']+'/models/E3SM'  #Existing E3SM code directory
 
 #We are going to use a pre-built executable. Set exeroot='' to build 
-exeroot = '/gpfs/wolf2/cades/cli185/scratch/zdr/e3sm_run/20240804_US-MOz_ICB1850CNRDCTCBC_ad_spinup/bld'
+#exeroot = '/gpfs/wolf2/cades/cli185/scratch/zdr/e3sm_run/20240804_US-MOz_ICB1850CNRDCTCBC_ad_spinup/bld'
+exeroot = ''
 
 #----------------------Required inputs---------------------------------------------
 
-runtype = 'latlon_bbox'        #site,latlon_list,latlon_bbox
+runtype = 'site'        #site,latlon_list,latlon_bbox
 mettype = 'gswp3'              #Site or reanalysis product to use (site, gswp3, crujra)
 case_suffix = ''               #Identifier for cases (leave blank if none)
 
 if (runtype == 'site'):
-    sites = 'all'           #Site name, list of site names, or 'all' for all sites in site group
-    sitegroup = 'ERW'       #Sites defined in <inputdata>/lnd/clm2/PTCLM/<sitegroup>_sitedata.txt
+    sites = 'US-MOz'           #Site name, list of site names, or 'all' for all sites in site group
+    sitegroup = 'AmeriFlux'       #Sites defined in <inputdata>/lnd/clm2/PTCLM/<sitegroup>_sitedata.txt
 else:
     region_name = 'region'  #Set the name of the region/point list to be simulated
     numproc = 384            #Number of processors, must be <= the number of active gridcells
@@ -38,15 +39,15 @@ lon_bounds = [-180,180]
 res = 'f19_f19'          #Resolution of global files to extract from
 
 use_cpl_bypass = True      #Coupler bypass for meteorology
-use_SP         = True     #Use Satellite phenolgy mode (doesn't yet work with FATES-SP)
+use_SP         = False     #Use Satellite phenolgy mode (doesn't yet work with FATES-SP)
 use_fates      = False     #Use FATES compsets
-fates_nutrient = True      #Use FATES nutrient (parteh_mode = 2)
+fates_nutrient = False      #Use FATES nutrient (parteh_mode = 2)
 
 nyears_ad      =    0      #number of years for ad spinup
 nyears_final   =   35      #number of years for final spinup OR for SP run
 nyears_trans   =    0      #number of years for transient run 
                            #  If -1, the final year will be the last year of forcing data.
-run_startyear  = 1980      #Starting year for transient run OR for SP run
+run_startyear  = 1850      #Starting year for transient run OR for SP run
 
 
 #---------------------Optional inputs via namelist variables------------------------
@@ -55,8 +56,8 @@ run_startyear  = 1980      #Starting year for transient run OR for SP run
 #case_options['option'] = value or [value1, value2, value3] if applying different options to different compsets
 case_options={} 
 #case_options['fates_paramfile'] = inputdata+'/lnd/clm2/paramdata/fates_params_api.32.0.0_pft1_c231215.nc'
-case_options['hist_mfilt']  = '1'
-case_options['hist_nhtfrq'] = '0'
+#case_options['hist_mfilt']  = '1'
+#case_options['hist_nhtfrq'] = '0'
 
 
 #--------------------ensemble options------------------------------------------------
