@@ -99,6 +99,7 @@ class ELMcase():
         self.postproc_startyear=-1
         self.postproc_endyear=9999
         self.namelist_options=namelist_options
+        self.tam=False
 
   def setup_ensemble(self, sampletype='monte_carlo',parm_list='', ensemble_file='', \
           np_ensemble=64, nsamples=100):
@@ -129,7 +130,7 @@ class ELMcase():
         self.queue='batch'
     if ('baseline' in self.machine):
         self.project='CLI185'
-    if ('perlmutter' in self.machine):
+    elif ('pm-cpu' in self.machine):
         self.project='e3sm'
         self.queue='regular'
     elif ('chrysalis' in self.machine):
@@ -414,6 +415,12 @@ class ELMcase():
       return result.stdout.decode('utf-8')
 
   def setup_case(self):
+    """
+    Setup the case
+
+    
+    """
+    
     os.chdir(self.casedir)
     #env_build
     self.xmlchange('SAVE_TIMING',value='FALSE')
@@ -558,7 +565,7 @@ class ELMcase():
                 +"trop_mozart_aero/aero/aerosoldep_rcp4.5_monthly_1849-2104_1.9x2.5_c100402.nc'")
     #Excluded keys in case_options that are not namelist options (handled elsewhere)
     keys_exclude = ['suffix','surffile','domainfile','pftdynfile','paramfile','fates_paramfile','humhol','metdir', \
-            'surffile_global','pftdynfile_global','domainfile_global']
+            'surffile_global','pftdynfile_global','domainfile_global','tam']
     #Custom namelist options
     for key in self.case_options.keys():
         if (not key in keys_exclude and not 'restart_' in key):
@@ -569,6 +576,8 @@ class ELMcase():
                 self.customize_namelist(variable=key,value=str(self.case_options[key]))
         elif ('humhol' in key):
             self.humhol=True
+        elif ('tam') in key:
+            self.tam=True
 
     #set domain file information
     if (domainfile == ''):
@@ -585,6 +594,8 @@ class ELMcase():
       self.xmlchange('LND_DOMAIN_FILE',value=domainfilename)
 
     #global CPPDEF modifications
+    if (self.tam):
+        self.cppdefs='TAM'
     if (self.humhol):
         self.cppdefs='HUM_HOL'
     if (self.is_bypass()):
@@ -618,6 +629,8 @@ class ELMcase():
       os.system('cp -r '+self.srcmods+'/* '+self.casedir+'/SourceMods')
 
   def customize_namelist(self, namelist_file='', variable='', value=''):
+    """Customize the namelist file"""
+
     output = open("user_nl_elm",'a')
     if (namelist_file != ''):
         mynamelist = open(namelist_file,'r')
@@ -628,6 +641,8 @@ class ELMcase():
     output.close()
 
   def build_case(self, clean=True):
+      """Build the case"""
+
       os.chdir(self.casedir)
       #If using DATM, set the resolution to ELM_USRDAT
       if (not self.is_bypass()):
@@ -771,6 +786,12 @@ class ELMcase():
         sys.exit(1)
 
   def submit_case(self,depend=-1,ensemble=False, multisite_script=''):
+    """
+    submit_case:  Submit the case to the queue
+
+
+    """
+
     #Create a pickle file of the model object for later use
     #Keep a copy in the case directory and OLMT directory
     self.create_pkl(outdir=self.casedir)
@@ -811,9 +832,14 @@ class ELMcase():
         jobnum = int(output.split()[-1])
         print('\nSubmitted '+str(jobnum))
     os.chdir(self.OLMTdir)
+
     return jobnum
 
   def create_pkl(self, outdir='./pklfiles'):
+    """
+    create_pkl:  Create a pickle file of the model object for later use
+    """
+
     os.chdir(self.OLMTdir)
     os.system('mkdir -p pklfiles')
     #print(os.path.abspath(outdir+'/'+self.casename+'.pkl'))
