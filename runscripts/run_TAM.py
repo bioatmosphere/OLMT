@@ -27,9 +27,10 @@ case_suffix = ''               #Identifier for cases (leave blank if none)
 
 if (runtype == 'site'):
     sites = 'US-MOz'           #Site name, list of site names, or 'all' for all sites in site group
-    sitegroup = 'AmeriFlux'       #Sites defined in <inputdata>/lnd/clm2/PTCLM/<sitegroup>_sitedata.txt
+    sitegroup = 'AmeriFlux'    #Sites defined in <inputdata>/lnd/clm2/PTCLM/<sitegroup>_sitedata.txt
+    numproc = 1              #Number of processors, must be <= the number of active gridcells
 else:
-    region_name = 'region'  #Set the name of the region/point list to be simulated
+    region_name = 'region'   #Set the name of the region/point list to be simulated
     numproc = 384            #Number of processors, must be <= the number of active gridcells
     if (runtype == 'latlon_list'):
         point_list_file = '/ccsopen/home/zdr/models/OLMT/point_lists/ERW_sitedata.txt'   #List of lat lons
@@ -41,11 +42,11 @@ res = 'f19_f19'          #Resolution of global files to extract from
 use_cpl_bypass = True      #Coupler bypass for meteorology
 use_SP         = False     #Use Satellite phenolgy mode (doesn't yet work with FATES-SP)
 use_fates      = False     #Use FATES compsets
-fates_nutrient = False      #Use FATES nutrient (parteh_mode = 2)
+fates_nutrient = False     #Use FATES nutrient (parteh_mode = 2)
 
-nyears_ad      =    0      #number of years for ad spinup
-nyears_final   =   35      #number of years for final spinup OR for SP run
-nyears_trans   =    0      #number of years for transient run 
+nyears_ad      =   33 #200     #number of years for ad spinup
+nyears_final   =   33 #400     #number of years for final spinup OR for SP run
+nyears_trans   =   1  #165     #number of years for transient run; 165 => 1850-2014
                            #  If -1, the final year will be the last year of forcing data.
 run_startyear  = 1850      #Starting year for transient run OR for SP run
 
@@ -55,6 +56,11 @@ run_startyear  = 1850      #Starting year for transient run OR for SP run
 #note:  use surffile, domainfile, pftdynfile, metdir instead of the standard namelist variables for those files.
 #case_options['option'] = value or [value1, value2, value3] if applying different options to different compsets
 case_options={} 
+case_options['tam'] = True              
+#case_options['use_lch4'] = '.false.'
+case_options['use_nofire'] = '.true.'
+case_options['paramfile'] = '/ccsopen/home/6lw/models/OLMT/inputdata/tam_params.nc'
+#case_options['paramfile'] = '/ccsopen/home/zdr/models/OLMT/clm_params_SPRUCE_20231120_spruceroot.nc'
 #case_options['fates_paramfile'] = inputdata+'/lnd/clm2/paramdata/fates_params_api.32.0.0_pft1_c231215.nc'
 #case_options['hist_mfilt']  = '1'
 #case_options['hist_nhtfrq'] = '0'
