@@ -30,7 +30,7 @@ if (runtype == 'site'):
     sitegroup = 'AmeriFlux'       #Sites defined in <inputdata>/lnd/clm2/PTCLM/<sitegroup>_sitedata.txt
 else:
     region_name = 'region'  #Set the name of the region/point list to be simulated
-    numproc = 384            #Number of processors, must be <= the number of active gridcells
+    numproc = 1536 #384            #Number of processors, must be <= the number of active gridcells
     if (runtype == 'latlon_list'):
         point_list_file = '/ccsopen/home/zdr/models/OLMT/point_lists/ERW_sitedata.txt'   #List of lat lons
 #If neither point_list or site is defined, it will use the bounds below.
@@ -125,7 +125,9 @@ else:
         print('Lat: ', lat_bounds)
         print('Lon: ', lon_bounds)
 
+#-----------------------------------------
 #Construct the list of compsets and suppring information
+#-----------------------------------------
 compset_type="I"
 if (use_cpl_bypass):
     compset_type='ICB'
@@ -230,8 +232,12 @@ for site in sites:
         res=res, nyears=nyears[c],startyear=startyear[c], region_name=region_name \
         lat_bounds=lat_bounds, lon_bounds=lon_bounds, np=numproc, point_list=point_list)
 
+    #-------------------------------
     #Create the case
+    #-------------------------------
+    print(f'Creating case {c} for site:{site}')
     cases[c].create_case()
+
     cases[c].case_options={}
     if (site != ''):
         cases[c].siteinfo = siteinfo[site]
@@ -284,10 +290,13 @@ for site in sites:
       cases[c].postproc_freq = postproc_freq
     else:
       cases[c].postproc_vars=[]
-
+    
+    #-----------------------------------------------
     #Set up the case (surface, domain and pftdata)
-    print('Setting up case for site: '+site)
+    #-----------------------------------------------
+    print(f'Setting up case {c} for site {site}')
     cases[c].setup_case()
+
     if (c == 0):
       #Get the surface and domain data 
       cases[c].setup_domain_surfdata(makesurfdat=True,makedomain=True)
@@ -301,13 +310,17 @@ for site in sites:
       #Get the dynamic PFT data
       cases[c].mask_grid = cases[0].mask_grid          #Get the mask from the first case
       cases[c].setup_domain_surfdata(makepftdyn=True)
-
+    
+    #-----------------------------------
     #Build the case
-    print('Building case')
+    #-----------------------------------
+    print(f"Building case {c}")
     cases[c].build_case()
     
+    #-----------------------------------
     #Submit the case
-    print('Submitting case')
+    #-----------------------------------
+    print(f'Submitting case {c}')
     jobnum_depend=-1
     if (depends[c] >= 0):
         jobnum_depend = jobnum[depends[c]]
