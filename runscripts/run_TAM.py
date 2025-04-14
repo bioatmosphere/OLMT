@@ -234,8 +234,11 @@ for site in sites:
         res=res, nyears=nyears[c],startyear=startyear[c], region_name=region_name \
         lat_bounds=lat_bounds, lon_bounds=lon_bounds, np=numproc, point_list=point_list)
 
+    #-------------------------------
     #Create the case
+    #-------------------------------
     cases[c].create_case()
+
     cases[c].case_options={}
     if (site != ''):
         cases[c].siteinfo = siteinfo[site]
@@ -289,9 +292,12 @@ for site in sites:
     else:
       cases[c].postproc_vars=[]
 
+    #-----------------------------------------------
     #Set up the case (surface, domain and pftdata)
+    #-----------------------------------------------
     print('Setting up case for site: '+site)
     cases[c].setup_case()
+
     if (c == 0):
       #Get the surface and domain data 
       cases[c].setup_domain_surfdata(makesurfdat=True,makedomain=True)
@@ -306,11 +312,15 @@ for site in sites:
       cases[c].mask_grid = cases[0].mask_grid          #Get the mask from the first case
       cases[c].setup_domain_surfdata(makepftdyn=True)
 
+    #-----------------------------------
     #Build the case
+    #-----------------------------------
     print('Building case')
     cases[c].build_case()
     
+    #-----------------------------------
     #Submit the case
+    #-----------------------------------
     print('Submitting case')
     jobnum_depend=-1
     if (depends[c] >= 0):
