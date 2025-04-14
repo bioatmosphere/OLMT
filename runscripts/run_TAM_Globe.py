@@ -36,16 +36,16 @@ else:
 #If neither point_list or site is defined, it will use the bounds below.
 lat_bounds = [-90,90]
 lon_bounds = [-180,180]
-res = 'f19_f19'          #Resolution of global files to extract from
+res = 'hcru_hcru'           #Resolution of global files to extract from ('f19_f19')
 
 use_cpl_bypass = True      #Coupler bypass for meteorology
 use_SP         = False     #Use Satellite phenolgy mode (doesn't yet work with FATES-SP)
 use_fates      = False     #Use FATES compsets
 fates_nutrient = False      #Use FATES nutrient (parteh_mode = 2)
 
-nyears_ad      =   200      #number of years for ad spinup
-nyears_final   =   400      #number of years for final spinup OR for SP run
-nyears_trans   =   165     #number of years for transient run 
+nyears_ad      =   20 #200      #number of years for ad spinup
+nyears_final   =   20 #400      #number of years for final spinup OR for SP run
+nyears_trans   =   1  #165     #number of years for transient run 
                            #  If -1, the final year will be the last year of forcing data.
 run_startyear  = 1850      #Starting year for transient run OR for SP run
 
@@ -229,7 +229,7 @@ for site in sites:
     cases[c] = model_ELM.ELMcase(caseid='',compset=compsets[c], site=site, \
         caseroot=caseroot,runroot=runroot,inputdata=inputdata,modelroot=modelroot, \
         machine=machine, exeroot=exeroot, suffix=mysuffix,  \
-        res=res, nyears=nyears[c],startyear=startyear[c], region_name=region_name \
+        res=res, nyears=nyears[c],startyear=startyear[c], region_name=region_name, \
         lat_bounds=lat_bounds, lon_bounds=lon_bounds, np=numproc, point_list=point_list)
 
     #-------------------------------
