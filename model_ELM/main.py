@@ -138,8 +138,14 @@ class ELMcase():
 
   def setup_ensemble(self, sampletype='monte_carlo',parm_list='', ensemble_file='', \
           np_ensemble=64, nsamples=100):
-    """
-    Setup the ensemble for the ELM case.
+    """Setup the ensemble for the ELM case.
+
+    Parameters:
+      sampletype:  type of sampling to use
+      parm_list:   list of parameters to sample
+      ensemble_file:  file with ensemble samples
+      np_ensemble: number of processors for the ensemble
+      nsamples:    number of samples to create
     """
 
     read_parm_list(self, parm_list=parm_list)
