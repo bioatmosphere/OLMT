@@ -12,11 +12,46 @@ from .netcdf4_functions import *
 from datetime import datetime
 
 class ELMcase():
-  def __init__(self,caseid='',compset='ICBELMBC',suffix='',site='',sitegroup='AmeriFlux', \
-            res='',tstep=1,np=1,nyears=1,startyear=-1, machine='', queue='', \
-            exeroot='', modelroot='', runroot='',caseroot='',inputdata='', \
-            region_name='', lat_bounds=[-90,90],lon_bounds=[-180,180], \
-            point_list=[], namelist_options=[],casename=''):
+  """
+  Create, set up, build, and run an ELM case.
+
+  """
+
+  def __init__(self, caseid='', compset='ICBELMBC', suffix='', site='', sitegroup='AmeriFlux', \
+            res='', tstep=1, np=1, nyears=1, startyear=-1, machine='', queue='', \
+            exeroot='', modelroot='', runroot='', caseroot='', inputdata='', \
+            region_name='', lat_bounds=[-90,90], lon_bounds=[-180,180], \
+            point_list=[], namelist_options=[], casename=''):
+      """Initialize the ELM case object.
+
+      Parameters:
+        caseid:
+        compset:
+        suffix:
+        site: character string
+            site name
+        sitegroup:
+            site group name
+        res: character string
+            resolution name
+        tstep: time step in hours;
+        np: number of processors
+        nyears:
+        startyear:
+        machine:
+        queue:
+        exeroot:
+        modelroot:
+        runroot:
+        caseroot:
+        inputdata:
+        region_name:
+        lat_bounds:
+        lon_bounds:
+        point_list:
+        namelist_options:
+        casename:
+      """
 
       if (casename != ''):
         #get case information from pre-existing pkl file:
@@ -103,6 +138,10 @@ class ELMcase():
 
   def setup_ensemble(self, sampletype='monte_carlo',parm_list='', ensemble_file='', \
           np_ensemble=64, nsamples=100):
+    """
+    Setup the ensemble for the ELM case.
+    """
+
     read_parm_list(self, parm_list=parm_list)
     if (ensemble_file == ''):
       create_samples(self, sampletype=sampletype, parm_list=parm_list,nsamples=nsamples)
@@ -117,6 +156,10 @@ class ELMcase():
     self.yscaler={}
 
   def get_machine(self,machine=''):
+    """
+    Get the machine name and set the model root directory.
+    """
+
     if (machine == ''):
       hostname = socket.gethostname()
       if ('baseline' in hostname):
@@ -138,6 +181,10 @@ class ELMcase():
         self.queue='compute'
 
   def get_model_directories(self):
+    """
+    Get the model directories and check that they exist.
+    """
+
     if (not os.path.exists(self.modelroot)):
       print('Error:  Model root '+self.modelroot+' does not exist.')
       sys.exit(1)
@@ -159,7 +206,10 @@ class ELMcase():
     print('Case root directory:  '+self.caseroot)
 
   def get_forcing(self,metdir='',mettype=''):
-    #Get the forcing type and directory
+    """
+    Get the forcing type and directory
+    """
+
     if (metdir == ''):
         if (self.site != '' and (mettype == '' or mettype == 'site')):
           #Assume the user wants to use site data and set default path
@@ -201,7 +251,10 @@ class ELMcase():
     self.get_metdata_year_range()
 
   def is_bypass(self):
-    #Determine whether this is a coupler bypass case from compset name
+    """Determine whether this is a coupler bypass case from compset name
+
+    """
+
     if ('CBCN' in self.compset or 'ICB' in self.compset or 'CLM45CB' in self.compset):
       return True
     else:
@@ -227,6 +280,10 @@ class ELMcase():
     #TODO - add metadata to the copied file about original filename
 
   def set_CNP_param_file(self,filename=''):
+    """
+    Set the CNP parameter file
+    """
+
     if (filename == ''):
         self.CNPparm_file = self.get_namelist_variable('fsoilordercon')
     else:
@@ -234,25 +291,47 @@ class ELMcase():
     os.system('cp '+self.CNPparm_file+' '+self.OLMTdir+'/temp/CNP_parameters.nc')
 
   def set_fates_param_file(self):
+    """Set the FATES parameter file
+
+    """
+
     if (self.fates_paramfile == ''):
         self.fates_paramfile = self.get_namelist_variable('fates_paramfile')
     print('FATES parameter file : '+self.fates_paramfile)
     os.system('cp '+self.fates_paramfile+' '+self.OLMTdir+'/temp/fates_paramfile.nc')
 
   def set_finidat_file(self, finidat_case='', finidat_year=0, finidat=''):
-      if (finidat_case != ''):
-        self.finidat_yst = str(10000+finidat_year)[1:]
-        self.finidat = self.runroot+'/'+finidat_case+'/run/'+ \
-          finidat_case+'.elm.r.'+self.finidat_yst+'-01-01-00000.nc'
-        self.finidat_year = finidat_year
-      elif (finidat != ''):
-        self.finidat = finidat
-        self.finidat_year = int(finidat[-19:-15])
-        self.finidat_yst=str(10000+finidat_year)[1:]
-      self.has_finidat=True
+    """Set the finidat file for the case.
 
-#-----------------------------------------------------------------------------------------
+    Parameters:
+      finidat_case:  Case name of the finidat file
+      finidat_year:  Year of the finidat file
+      finidat:       Path to the finidat file
+    
+    Returns:
+
+    """
+    if (finidat_case != ''):
+      self.finidat_yst = str(10000+finidat_year)[1:]
+      self.finidat = self.runroot+'/'+finidat_case+'/run/'+ \
+        finidat_case+'.elm.r.'+self.finidat_yst+'-01-01-00000.nc'
+      self.finidat_year = finidat_year
+    elif (finidat != ''):
+      self.finidat = finidat
+      self.finidat_year = int(finidat[-19:-15])
+      self.finidat_yst=str(10000+finidat_year)[1:]
+    self.has_finidat=True
+
+  
   def create_case(self, machine='',casename=''):
+    """Create the case directory and set up the case.
+
+    Parameters:
+      machine:  Machine name
+      casename:  Case name
+
+    """
+
     if (casename == ''):
       #construct default casename
       if (self.site == ''):
@@ -307,7 +386,10 @@ class ELMcase():
         self.exeroot = self.runroot+'/'+self.casename+'/bld'
 
   def setup_domain_surfdata(self,makedomain=False,makesurfdat=False,makepftdyn=False, pft=-1):
-     #------Make domain, surface data and pftdyn files ------------------
+    """
+    Make domain, surface data and pftdyn files.
+    """
+    
     os.chdir(self.OLMTdir)
     mysimyr=1850
     surffile=''
@@ -416,9 +498,7 @@ class ELMcase():
 
   def setup_case(self):
     """
-    Setup the case
-
-    
+    Setup the case.
     """
     
     os.chdir(self.casedir)
@@ -641,7 +721,10 @@ class ELMcase():
     output.close()
 
   def build_case(self, clean=True):
-      """Build the case"""
+      """
+      Build the case
+      
+      """
 
       os.chdir(self.casedir)
       #If using DATM, set the resolution to ELM_USRDAT
@@ -788,7 +871,6 @@ class ELMcase():
   def submit_case(self,depend=-1,ensemble=False, multisite_script=''):
     """
     submit_case:  Submit the case to the queue
-
 
     """
 

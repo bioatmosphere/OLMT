@@ -36,6 +36,21 @@ def get_machine_info(machine_name=''):
     return machine, rootdir, inputdata
 
 def get_site_info(inputdata, sitegroup='AmeriFlux'):
+    """
+    Read AmeriFlux site data and return a dictionary of site information
+
+    Parameters
+    ----------
+    inputdata : str
+        Path to the input data directory
+    sitegroup : str
+        Name of the site group (default is 'AmeriFlux')
+
+    Returns
+    -------
+
+    """
+    
     sitegroup_file = open(inputdata+'/lnd/clm2/PTCLM/'+sitegroup+'_sitedata.txt')
     siteinfo={}
     snum=0
