@@ -28,6 +28,7 @@ case_suffix = ''               #Identifier for cases (leave blank if none)
 if (runtype == 'site'):
     sites = 'US-MOz'           #Site name, list of site names, or 'all' for all sites in site group
     sitegroup = 'AmeriFlux'       #Sites defined in <inputdata>/lnd/clm2/PTCLM/<sitegroup>_sitedata.txt
+    numproc = 1
 else:
     region_name = 'region'  #Set the name of the region/point list to be simulated
     numproc = 1536 #384            #Number of processors, must be <= the number of active gridcells
@@ -314,13 +315,13 @@ for site in sites:
     #-----------------------------------
     #Build the case
     #-----------------------------------
-    print(f"Building case {c}")
+    print(f"Building case {c} for site {site}")
     cases[c].build_case()
     
     #-----------------------------------
     #Submit the case
     #-----------------------------------
-    print(f'Submitting case {c}')
+    print(f'Submitting case {c} for site {site}')
     jobnum_depend=-1
     if (depends[c] >= 0):
         jobnum_depend = jobnum[depends[c]]
