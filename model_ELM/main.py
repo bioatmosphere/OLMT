@@ -133,7 +133,7 @@ class ELMcase():
     if ('baseline' in self.machine):
         self.project='CLI185'
     if ('pm-cpu' in self.machine):
-        self.project='e3sm'
+        self.project='m2467'
         self.queue='regular'
     elif ('chrysalis' in self.machine):
         self.project='e3sm'
