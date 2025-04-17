@@ -13,7 +13,7 @@ machine, rootdir, inputdata = get_machine_info(machine_name='')
 caseroot= rootdir+'/e3sm_cases'
 runroot = rootdir+'/e3sm_run'
 #TODO:  add option to clone repository
-modelroot = os.environ['HOME']+'/models/E3SM'  #Existing E3SM code directory
+modelroot = os.environ['HOME']+'/e3sm_v3'  #Existing E3SM code directory
 
 #Set the full path of the bld directory to use a pre-built executable. Set exeroot='' to build 
 #exeroot = '/lcrc/group/e3sm/ac.ricciuto/scratch/e3sm_run/20250225_US-UMB_ICB1850CNRDCTCBC_ad_spinup/bld/'
@@ -44,9 +44,9 @@ use_SP         = False     #Use Satellite phenolgy mode (doesn't yet work with F
 use_fates      = False     #Use FATES compsets
 fates_nutrient = False      #Use FATES nutrient (parteh_mode = 2)
 
-nyears_ad      =   40      #number of years for ad spinup
-nyears_final   =   40      #number of years for final spinup OR for SP run
-nyears_trans   =  164      #number of years for transient run 
+nyears_ad      =   40      #200 #number of years for ad spinup
+nyears_final   =   40      #400 #number of years for final spinup OR for SP run
+nyears_trans   =   2       #165 #number of years for transient run 
                            #  If -1, the final year will be the last year of forcing data.
 run_startyear  = 1850      #Starting year for transient run OR for SP run
 
@@ -55,7 +55,8 @@ run_startyear  = 1850      #Starting year for transient run OR for SP run
 #Define a dictionary to handle namelist options.
 #note:  use surffile, domainfile, pftdynfile, metdir instead of the standard namelist variables for those files.
 #case_options['option'] = value or [value1, value2, value3] if applying different options to different compsets
-case_options={} 
+case_options={}
+case_options['use_nofire'] = '.true.'
 #case_options['fates_paramfile'] = inputdata+'/lnd/clm2/paramdata/fates_params_api.32.0.0_pft1_c231215.nc'
 #case_options['hist_mfilt']  = '1'
 #case_options['hist_nhtfrq'] = '0'
@@ -124,7 +125,9 @@ else:
         print('Lat: ', lat_bounds)
         print('Lon: ', lon_bounds)
 
+#-----------------------------------------
 #Construct the list of compsets and suppring information
+#-----------------------------------------
 compset_type="I"
 if (use_cpl_bypass):
     compset_type='ICB'
@@ -215,6 +218,9 @@ if (ensemble):
 nsites = len(sites)
 jobnum = np.zeros(len(compsets),int)  #list of submitted job ids
 
+#---------------------------------------
+#Create, setup, build the cases and submit them by loop over sites
+#---------------------------------------
 for site in sites:
   cases={}
   ncases = len(compsets)  #how many cases we are running
@@ -229,8 +235,12 @@ for site in sites:
         res=res, nyears=nyears[c],startyear=startyear[c], region_name=region_name, \
         lat_bounds=lat_bounds, lon_bounds=lon_bounds, np=numproc, point_list=point_list)
 
+    #-------------------------------
     #Create the case
+    #-------------------------------
+    print(f'Creating case {c} for site:{site}')
     cases[c].create_case()
+
     cases[c].case_options={}
     if (site != ''):
         cases[c].siteinfo = siteinfo[site]
@@ -284,9 +294,12 @@ for site in sites:
     else:
       cases[c].postproc_vars=[]
 
+    #-----------------------------------------------
     #Set up the case (surface, domain and pftdata)
-    print('Setting up case for site: '+site)
+    #-----------------------------------------------
+    print(f'Setting up case {c} for site {site}')
     cases[c].setup_case()
+
     if (c == 0):
       #Get the surface and domain data 
       cases[c].setup_domain_surfdata(makesurfdat=True,makedomain=True)
@@ -301,12 +314,16 @@ for site in sites:
       cases[c].mask_grid = cases[0].mask_grid          #Get the mask from the first case
       cases[c].setup_domain_surfdata(makepftdyn=True)
 
+    #-----------------------------------
     #Build the case
-    print('Building case')
+    #-----------------------------------
+    print(f"Building case {c} for site {site}")
     cases[c].build_case()
     
+    #-----------------------------------
     #Submit the case
-    print('Submitting case')
+    #-----------------------------------
+    print(f'Submitting case {c} for site {site}')
     jobnum_depend=-1
     if (depends[c] >= 0):
         jobnum_depend = jobnum[depends[c]]
