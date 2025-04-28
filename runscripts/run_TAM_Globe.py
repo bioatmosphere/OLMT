@@ -220,10 +220,12 @@ nsites = len(sites)
 jobnum = np.zeros(len(compsets),int)  #list of submitted job ids
 
 for site in sites:
-  cases={}
+  cases={} #case dictionary
   ncases = len(compsets)  #how many cases we are running
+  print(f"{ncases} cases we are running")
   scriptdir=os.getcwd()
 
+  #Loop over the cases
   for c in range(0,ncases):
     mysuffix = '_'.join(filter(None,[suffix[c],case_suffix]))
 
@@ -237,6 +239,8 @@ for site in sites:
     #Create the case
     #-------------------------------
     print(f'Creating case {c} for site:{site}')
+    if (site == ''):
+       print(f'Creating case {c} for {runtype}')
     cases[c].create_case()
 
     cases[c].case_options={}
@@ -296,6 +300,8 @@ for site in sites:
     #Set up the case (surface, domain and pftdata)
     #-----------------------------------------------
     print(f'Setting up case {c} for site {site}')
+    if (site == ''):
+       print(f'Setting up case {c} for {runtype}')
     cases[c].setup_case()
 
     if (c == 0):
@@ -316,12 +322,16 @@ for site in sites:
     #Build the case
     #-----------------------------------
     print(f"Building case {c} for site {site}")
+    if (site == ''):
+       print(f'Building case {c} for {runtype}')
     cases[c].build_case()
     
     #-----------------------------------
     #Submit the case
     #-----------------------------------
     print(f'Submitting case {c} for site {site}')
+    if (site == ''):
+       print(f'Submitting case {c} for {runtype}')
     jobnum_depend=-1
     if (depends[c] >= 0):
         jobnum_depend = jobnum[depends[c]]
