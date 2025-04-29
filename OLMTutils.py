@@ -51,7 +51,12 @@ def get_site_info(inputdata, sitegroup='AmeriFlux'):
 
     """
     
-    sitegroup_file = open(inputdata+'/lnd/clm2/PTCLM/'+sitegroup+'_sitedata.txt')
+    # Site data
+    if sitegroup != 'AmeriFlux':
+        sitegroup_file = open('inputdata/PTCLM/'+sitegroup+'_sitedata.txt')
+    else:
+        sitegroup_file = open(inputdata+'/lnd/clm2/PTCLM/'+sitegroup+'_sitedata.txt')
+
     siteinfo={}
     snum=0
     for s in sitegroup_file:
@@ -65,7 +70,12 @@ def get_site_info(inputdata, sitegroup='AmeriFlux'):
           siteinfo[sitename]['PCT_CLAY']=-999
         snum=snum+1
     sitegroup_file.close()
-    sitegroup_pftfile = open(inputdata+'/lnd/clm2/PTCLM/'+sitegroup+'_pftdata.txt')
+
+    #PFT data
+    if sitegroup != 'AmeriFlux':
+        sitegroup_pftfile = open('inputdata/PTCLM/'+sitegroup+'_pftdata.txt')
+    else:
+        sitegroup_pftfile = open(inputdata+'/lnd/clm2/PTCLM/'+sitegroup+'_pftdata.txt')
     snum = 0
     #PFTs.  TODO - allow crop PFTs
     for s in sitegroup_pftfile:
@@ -78,8 +88,12 @@ def get_site_info(inputdata, sitegroup='AmeriFlux'):
                     siteinfo[sitename]['PCT_NAT_PFT'][pindex] = ppct
         snum = snum+1
     sitegroup_pftfile.close()
+
     #Soil texture
-    sitegroup_soilfile = open(inputdata+'/lnd/clm2/PTCLM/'+sitegroup+'_soildata.txt')
+    if sitegroup != 'AmeriFlux':
+        sitegroup_soilfile = open('inputdata/PTCLM/'+sitegroup+'_soildata.txt')
+    else:
+        sitegroup_soilfile = open(inputdata+'/lnd/clm2/PTCLM/'+sitegroup+'_soildata.txt')
     snum = 0
     for s in sitegroup_soilfile:
         if (snum > 0):
