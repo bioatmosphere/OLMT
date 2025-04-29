@@ -26,8 +26,8 @@ mettype = 'gswp3'              #Site or reanalysis product to use (site, gswp3, 
 case_suffix = ''               #Identifier for cases (leave blank if none)
 
 if (runtype == 'site'):
-    sites = 'US-MOz'           #Site name, list of site names, or 'all' for all sites in site group
-    sitegroup = 'AmeriFlux'    #Sites defined in <inputdata>/lnd/clm2/PTCLM/<sitegroup>_sitedata.txt
+    sites = 'US-Ho1'           #Site name, list of site names, or 'all' for all sites in site group
+    sitegroup = 'TAM'    #Sites defined in <inputdata>/lnd/clm2/PTCLM/<sitegroup>_sitedata.txt
     numproc = 1              #Number of processors, must be <= the number of active gridcells
 else:
     region_name = 'region'   #Set the name of the region/point list to be simulated
@@ -46,7 +46,7 @@ fates_nutrient = False     #Use FATES nutrient (parteh_mode = 2)
 
 nyears_ad      =   33 #200     #number of years for ad spinup
 nyears_final   =   33 #400     #number of years for final spinup OR for SP run
-nyears_trans   =   1  #165     #number of years for transient run; 165 => 1850-2014
+nyears_trans   =   165#165     #number of years for transient run; 165 => 1850-2014
                            #  If -1, the final year will be the last year of forcing data.
 run_startyear  = 1850      #Starting year for transient run OR for SP run
 
@@ -68,7 +68,7 @@ case_options['paramfile'] = '/ccsopen/home/6lw/models/OLMT/inputdata/tam_params.
 
 #--------------------ensemble options------------------------------------------------
 
-parm_list      = '' #'parm_list_test_bgc' #'parm_list_fatesUQ' #'parm_list_example' #'parm_list_FATES'    #Set parameter list (leave blank for no ensemble)
+parm_list      = 'parm_list_tam' #Set parameter list (leave blank for no ensemble)
 nsamples       =  1000    #number of samples to run
 np_ensemble    =  384    #number of ensemble numbers to run in parallel (MUST be <= nsamples)
 ensemble_file  = ''     #File containing samples (if blank, OLMT will generate one)
