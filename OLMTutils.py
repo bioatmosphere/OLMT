@@ -2,8 +2,35 @@ import re, socket, os, sys
 import subprocess
 import numpy as np
 
-#Function to return default directories for supported machines
 def get_machine_info(machine_name=''):
+    """
+    Function to return default directories for supported machines.
+
+    Parameters
+    ----------
+    machine_name : str
+        Name of the machine. If not provided, it will be detected automatically.
+        Supported machines include:
+        - cades-baseline
+        - chrysalis
+        - cades
+        - pm-cpu
+        - linux-generic
+        - ubuntu
+        - or-slurm
+        - chrlogin
+        - chrysalis-login
+
+    Returns
+    -------
+    machine : str
+        Name of the machine.
+    rootdir : str
+        Root directory for the machine.
+    inputdata : str
+        Path to the input data directory.  
+    """
+
     if (machine_name == ''):
         if ('HOSTNAME' in os.environ):
             machine_name=os.environ['HOSTNAME']
@@ -48,12 +75,14 @@ def get_site_info(inputdata, sitegroup='AmeriFlux'):
 
     Returns
     -------
-
+    siteinfo : dict
+        Dictionary containing site information, including latitude, longitude,
+        PCT_NAT_PFT, PCT_SAND, and PCT_CLAY for each site.
     """
     
     # Site data
     if sitegroup != 'AmeriFlux':
-        sitegroup_file = open('inputdata/PTCLM/'+sitegroup+'_sitedata.txt')
+        sitegroup_file = open('../inputdata/PTCLM/'+sitegroup+'_sitedata.txt')
     else:
         sitegroup_file = open(inputdata+'/lnd/clm2/PTCLM/'+sitegroup+'_sitedata.txt')
 
@@ -73,7 +102,7 @@ def get_site_info(inputdata, sitegroup='AmeriFlux'):
 
     #PFT data
     if sitegroup != 'AmeriFlux':
-        sitegroup_pftfile = open('inputdata/PTCLM/'+sitegroup+'_pftdata.txt')
+        sitegroup_pftfile = open('../inputdata/PTCLM/'+sitegroup+'_pftdata.txt')
     else:
         sitegroup_pftfile = open(inputdata+'/lnd/clm2/PTCLM/'+sitegroup+'_pftdata.txt')
     snum = 0
@@ -91,7 +120,7 @@ def get_site_info(inputdata, sitegroup='AmeriFlux'):
 
     #Soil texture
     if sitegroup != 'AmeriFlux':
-        sitegroup_soilfile = open('inputdata/PTCLM/'+sitegroup+'_soildata.txt')
+        sitegroup_soilfile = open('../inputdata/PTCLM/'+sitegroup+'_soildata.txt')
     else:
         sitegroup_soilfile = open(inputdata+'/lnd/clm2/PTCLM/'+sitegroup+'_soildata.txt')
     snum = 0
@@ -102,6 +131,7 @@ def get_site_info(inputdata, sitegroup='AmeriFlux'):
             siteinfo[sitename]['PCT_CLAY'] = float(s[:-1].split(',')[5])
         snum=snum+1
     sitegroup_soilfile.close()
+    
     return siteinfo
 
 def get_point_list(fname):

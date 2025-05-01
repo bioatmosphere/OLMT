@@ -238,9 +238,10 @@ for site in sites:
     #-------------------------------
     #Create the case
     #-------------------------------
-    print(f'Creating case {c} for site:{site}')
     if (site == ''):
        print(f'Creating case {c} for {runtype}')
+    else:
+       print(f'Creating case {c} for site:{site}')
     cases[c].create_case()
 
     cases[c].case_options={}
@@ -299,9 +300,10 @@ for site in sites:
     #-----------------------------------------------
     #Set up the case (surface, domain and pftdata)
     #-----------------------------------------------
-    print(f'Setting up case {c} for site {site}')
     if (site == ''):
        print(f'Setting up case {c} for {runtype}')
+    else:
+       print(f'Setting up case {c} for site {site}')
     cases[c].setup_case()
 
     if (c == 0):
@@ -321,17 +323,19 @@ for site in sites:
     #-----------------------------------
     #Build the case
     #-----------------------------------
-    print(f"Building case {c} for site {site}")
     if (site == ''):
        print(f'Building case {c} for {runtype}')
+    else:
+       print(f"Building case {c} for site {site}")
     cases[c].build_case()
     
     #-----------------------------------
     #Submit the case
     #-----------------------------------
-    print(f'Submitting case {c} for site {site}')
     if (site == ''):
        print(f'Submitting case {c} for {runtype}')
+    else:
+        print(f'Submitting case {c} for site {site}')
     jobnum_depend=-1
     if (depends[c] >= 0):
         jobnum_depend = jobnum[depends[c]]

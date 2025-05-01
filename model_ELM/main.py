@@ -24,10 +24,16 @@ class ELMcase():
             point_list=[], namelist_options=[], casename=''):
       """Initialize the ELM case object.
 
-      Parameters:
+      Parameters
+      ----------
         caseid:
-        compset:
+        compset: str
+            ELM component set name
+            e.g. I1850ELM, I1850ELMFATES, I1850ELMBC
+            I1850ELMBC is the default
         suffix:
+            suffix for the case name
+            e.g. ad
         site: character string
             site name
         sitegroup:
@@ -51,6 +57,8 @@ class ELMcase():
         point_list:
         namelist_options:
         casename:
+            name of the case to load
+            if not specified, a new case will be created
       """
 
       if (casename != ''):
@@ -140,12 +148,18 @@ class ELMcase():
           np_ensemble=64, nsamples=100):
     """Setup the ensemble for the ELM case.
 
-    Parameters:
-      sampletype:  type of sampling to use
-      parm_list:   list of parameters to sample
-      ensemble_file:  file with ensemble samples
-      np_ensemble: number of processors for the ensemble
-      nsamples:    number of samples to create
+    Parameters
+    ----------
+    sampletype: str
+        type of sampling to use: 'monte_carlo' or 'latin_hypercube'
+    parm_list: str
+        list of parameters to sample
+    ensemble_file: 
+        file containing the ensemble
+    np_ensemble: int
+        number of processors for ensemble
+    nsamples: int
+        number of samples to create
     """
 
     read_parm_list(self, parm_list=parm_list)
@@ -286,8 +300,10 @@ class ELMcase():
     #TODO - add metadata to the copied file about original filename
 
   def set_CNP_param_file(self,filename=''):
-    """
-    Set the CNP parameter file
+    """Set the CNP parameter file
+
+    Parameters:
+      filename:  Name of the CNP parameter file
     """
 
     if (filename == ''):
@@ -331,6 +347,8 @@ class ELMcase():
   
   def create_case(self, machine='',casename=''):
     """Create the case directory and set up the case.
+
+    Call ./create_newcase in cime/scripts.
 
     Parameters:
       machine:  Machine name
@@ -392,8 +410,13 @@ class ELMcase():
         self.exeroot = self.runroot+'/'+self.casename+'/bld'
 
   def setup_domain_surfdata(self,makedomain=False,makesurfdat=False,makepftdyn=False, pft=-1):
-    """
-    Make domain, surface data and pftdyn files.
+    """Make domain, surface data and pftdyn files.
+
+    Parameters:
+      makedomain:  Make domain file
+      makesurfdat: Make surface data file
+      makepftdyn:  Make pftdyn file
+      pft:         PFT number to use for domain/surface data
     """
     
     os.chdir(self.OLMTdir)
@@ -492,19 +515,34 @@ class ELMcase():
     print('Run length (years): '+str(self.run_n)+'\n')
 
   def xmlchange(self, variable, value='', append=''):
-      os.chdir(self.casedir)
-      if (value != ''):
-        os.system('./xmlchange '+variable+'='+value)
-      elif (append != ''):
-        os.system('./xmlchange --append '+variable+'='+append)
+    """Change the value of a variable in the xml file.
+
+    Parameters:
+      variable:  Variable name
+      value:     Value to set
+      append:    Value to append
+    """
+
+    os.chdir(self.casedir)
+    if (value != ''):
+      os.system('./xmlchange '+variable+'='+value)
+    elif (append != ''):
+      os.system('./xmlchange --append '+variable+'='+append)
 
   def xmlquery(self, variable):
+      """Get the value of a variable from the xml file.
+
+      Parameters:
+        variable:  Variable name
+      """
+
       result = subprocess.run(['./xmlquery','--value',variable], stdout=subprocess.PIPE)
       return result.stdout.decode('utf-8')
 
   def setup_case(self):
-    """
-    Setup the case.
+    """Setup the case.
+
+    Call ./case.setup in cime/scripts.
     """
     
     os.chdir(self.casedir)
@@ -715,7 +753,13 @@ class ELMcase():
       os.system('cp -r '+self.srcmods+'/* '+self.casedir+'/SourceMods')
 
   def customize_namelist(self, namelist_file='', variable='', value=''):
-    """Customize the namelist file"""
+    """Customize the namelist file
+    
+    Parameters:
+      namelist_file:  Name of the namelist file
+      variable:       Name of the variable to change
+      value:          Value to set the variable to
+      """
 
     output = open("user_nl_elm",'a')
     if (namelist_file != ''):
@@ -727,9 +771,12 @@ class ELMcase():
     output.close()
 
   def build_case(self, clean=True):
-      """
-      Build the case
+      """Build the case
       
+      Call ./case.build in cime/scripts.
+
+      Parameters:
+        clean:  Clean the case before building
       """
 
       os.chdir(self.casedir)
@@ -875,8 +922,9 @@ class ELMcase():
         sys.exit(1)
 
   def submit_case(self,depend=-1,ensemble=False, multisite_script=''):
-    """
-    submit_case:  Submit the case to the queue
+    """Submit the case to the queue
+
+    call ./case.submit in cime/scripts
 
     """
 
@@ -924,8 +972,10 @@ class ELMcase():
     return jobnum
 
   def create_pkl(self, outdir='./pklfiles'):
-    """
-    create_pkl:  Create a pickle file of the model object for later use
+    """create_pkl:  Create a pickle file of the model object for later use
+
+    Parameters:
+      outdir:  Output directory for the pickle file
     """
 
     os.chdir(self.OLMTdir)

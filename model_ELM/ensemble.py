@@ -4,8 +4,15 @@ import os, sys, csv, time, math
 import numpy as np
 import datetime
 
-#Read the parameter list file
 def read_parm_list(self, parm_list=''):
+    """Read the parameter list file and set up the ensemble parameters
+    
+    Parameters
+    ----------
+    parm_list : str
+        Name of the parameter list file
+    """
+
     os.chdir(self.OLMTdir)
     if (os.path.exists(parm_list)):
         myfile = open(parm_list,'r')
@@ -33,8 +40,19 @@ def read_parm_list(self, parm_list=''):
 #        parms_def.append(parm_file[p][
     
 
-#Create the samples file
 def create_samples(self,sampletype='monte_carlo',nsamples=100,parm_list=''):
+    """Create the samples file for the ensemble
+    
+    Parameters
+    ----------
+    sampletype : str
+        Type of sampling to use (monte_carlo, latin_hypercube)
+    nsamples : int
+        Number of samples to create
+    parm_list : str
+        Name of the parameter list file
+    """
+
     self.nsamples=nsamples
     self.samples=np.zeros((self.nparms_ensemble,self.nsamples), float)
     for i in range(0,self.nsamples):
@@ -46,7 +64,14 @@ def create_samples(self,sampletype='monte_carlo',nsamples=100,parm_list=''):
     np.savetxt(self.ensemble_file,np.transpose(self.samples))
 
 def create_ensemble_script(self, walltime=24):
-    #Create the PBS script we will submit to run the ensemble
+    """Create the PBS script we will submit to run the ensemble
+    
+    Parameters
+    ----------
+    walltime : int
+        Walltime for the job
+    """
+    
     os.chdir(self.casedir)
     #Get the LD_LIBRARY_PATH from software environment
     softenv = open('software_environment.txt','r')
@@ -81,7 +106,18 @@ def create_ensemble_script(self, walltime=24):
     self.rundir_UQ = self.runroot+'/UQ/'+self.casename
 
 def create_multisite_script(self,sites,scriptdir, walltime=24):
-    #Create the PBS script we will submit to run multiple sites
+    """Create the PBS script we will submit to run multiple sites
+
+    Parameters
+    ----------
+    sites : list
+        List of sites to run
+    scriptdir : str
+        Directory to write the script to
+    walltime : int
+        Walltime for the job
+    """
+
     os.chdir(self.casedir)
     #Get the LD_LIBRARY_PATH from software environment
     softenv = open('software_environment.txt','r')
