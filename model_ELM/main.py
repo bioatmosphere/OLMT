@@ -10,6 +10,7 @@ from .run_GSA import *
 from .MCMC import *
 from .netcdf4_functions import *
 from datetime import datetime
+import xarray as xr
 
 class ELMcase():
   def __init__(self,caseid='',compset='ICBELMBC',suffix='',site='',sitegroup='AmeriFlux', \
@@ -199,7 +200,9 @@ class ELMcase():
             if mettype == '':
               print('Error: When specifying metdir, Must also specify met type (e.g. gswp3)')
               sys.exit(1)
-        self.metdir=metdir
+        self.metdir = metdir
+        if self.forcing == 'site':
+            self.metdir = metdir+'/1x1pt_'+self.site
     self.get_metdata_year_range()
 
   def is_bypass(self):
@@ -240,6 +243,32 @@ class ELMcase():
         self.fates_paramfile = self.get_namelist_variable('fates_paramfile')
     print('FATES parameter file : '+self.fates_paramfile)
     os.system('cp '+self.fates_paramfile+' '+self.OLMTdir+'/temp/fates_paramfile.nc')
+    if (self.fates_pft >= 0):
+        print('Extracting PFT '+str(self.fates_pft))
+        if (self.pft_duplicates > 1):
+            fname_list=[]
+            print('Duplicating '+str(self.pft_duplicates)+' times.')
+            for pf in range(0,self.pft_duplicates):
+                fname = self.OLMTdir+'/temp/fates_paramfile_'+str(pf)+'.nc'
+                os.system('ncks -O -d fates_pft,'+str(self.fates_pft)+','+str(self.fates_pft)+' ' \
+                        +self.OLMTdir+'/temp/fates_paramfile.nc'+' -o '+fname)
+                fname_list.append(fname)
+            # Open and concatenate along the 'fates_pft' dimension
+            datasets = [xr.open_dataset(f) for f in fname_list]
+            # Find variables that have 'fates_pft' as a dimension
+            vars_with_fpft = [var for var in datasets[0].data_vars if 'fates_pft' in datasets[0][var].dims]
+            # Subset only those vars
+            datasets_trimmed = [ds[vars_with_fpft] for ds in datasets]
+            ds_concat = xr.concat(datasets_trimmed, dim='fates_pft')
+            # Add back the rest of the variables (those without 'fates_pft')
+            vars_wo_fpft = [var for var in datasets[0].data_vars if 'fates_pft' not in datasets[0][var].dims]
+            for var in vars_wo_fpft:
+                ds_concat[var] = datasets[0][var]  # Use first file's value
+            ds_concat.to_netcdf(self.OLMTdir+'/temp/fates_paramfile.nc', mode='w')
+            os.system('rm fates_paramfile_*.nc')
+        else:
+            os.system('ncks -O -d fates_pft,'+str(self.fates_pft)+','+str(self.fates_pft)+' '+ \
+                self.OLMTdir+'/temp/fates_paramfile.nc -o '+self.OLMTdir+'/temp/fates_paramfile.nc')
 
   def set_finidat_file(self, finidat_case='', finidat_year=0, finidat=''):
       if (finidat_case != ''):
@@ -548,8 +577,13 @@ class ELMcase():
     self.customize_namelist(variable='fsoilordercon',value="'"+self.rundir+"/CNP_parameters.nc'")
     #Fates options - TODO add nutrient/parteh options
     if ('ED' in self.compset or 'FATES' in self.compset):
-        if self.fates_nutrient:
+        if 'CN' in self.nutrients:
+          #Note, if carbon only, use parteh_mode = 1.
           self.customize_namelist(variable='fates_parteh_mode',value='2')
+          bldnml = '" -nutrient '+self.nutrients.lower()+' -nutrient_comp_pathway '+ \
+                  self.nutrient_comp.lower()+' -soil_decomp '+self.soil_decomp.lower()+'"'
+          bldnml = bldnml.replace('cnt','century')
+          self.xmlchange('ELM_BLDNML_OPTS',append=bldnml)
         self.customize_namelist(variable='fates_paramfile',value="'"+self.rundir+"/fates_paramfile.nc'")
         #if (self.fates_logging):
         #    self.customize_namelist(variable='use_fates_logging',value='.true.')
@@ -690,7 +724,7 @@ class ELMcase():
                   mypresaero = '"datm.streams.txt.presaero.trans_1850-2000 1850 1850 2000"'
                   myco2      = ', "datm.streams.txt.co2tseries.20tr 1766 1766 2010"'
               elif ('1850' in self.compset):
-                  mypresaero = '"datm.streams.txt.presaero.clim_1850 1 1 1"'
+                  mypresaero = '"datm.streams.txt.presaero.clim_1850 1 1850 1850"'
                   myco2=''
               else:
                   mypresaero = '"datm.streams.txt.presaero.clim_2000 1 2000 2000"'
@@ -780,16 +814,20 @@ class ELMcase():
           myinput.close()
           myoutput.close()
 
-      #reverse directories for CLM1PT and site
       if (self.forcing == 'site'):
           myinput  = open('./Buildconf/datmconf/datm.streams.txt.CLM1PT.ELM_USRDAT')
           myoutput = open('./user_datm.streams.txt.CLM1PT.ELM_USRDAT','w')
           for s in myinput:
               if ('CLM1PT_data' in s):
-                  temp = s.replace('CLM1PT_data', 'TEMPSTRING')
-                  s    = temp.replace('1x1pt'+'_'+self.site, 'CLM1PT_data')
-                  temp  =s.replace('TEMPSTRING', '1x1pt'+'_'+self.site)
-                  myoutput.write(temp)
+                  if (self.metdir != ''):
+                    #Replace with user-specified directory
+                    myoutput.write(self.metdir+'\n')
+                  else:
+                    #reverse directories for CLM1PT and site  
+                    temp = s.replace('CLM1PT_data', 'TEMPSTRING')
+                    s    = temp.replace('1x1pt'+'_'+self.site, 'CLM1PT_data')
+                    temp  =s.replace('TEMPSTRING', '1x1pt'+'_'+self.site)
+                    myoutput.write(temp)
               elif (('ED' in self.compset or 'FATES' in self.compset) and 'FLDS' in s):
                   print('Not including FLDS in atm stream file')
               else:
