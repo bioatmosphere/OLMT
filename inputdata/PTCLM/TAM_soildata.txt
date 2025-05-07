@@ -1,0 +1,2 @@
+site_code,soil_depth,n_layers,layer_depth,layer_sand%,layer_clay%
+US-Ho1,0.8,1,-999,50.3,15.9
