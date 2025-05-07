@@ -12,6 +12,22 @@ from sklearn import preprocessing
 from sklearn.model_selection import train_test_split, GridSearchCV
 
 def train_surrogate(self,myvars):
+ """Train surrogate models for the specified variables using a neural network.
+ 
+ A MLP is trained for each variable in myvars using the training data from the
+ ensemble simulations. The training data is split into training and validation sets,
+ and the models are evaluated using R-squared metrics. The trained models are stored
+ in the surrogate dictionary, and the scalers for the parameters and outputs are also
+ stored for later use.
+
+ Other models can be added in the future.
+
+ Parameters
+ ----------
+ myvars : list
+     List of variable names for which to train surrogate models.
+ """
+
  self.qoi_bad={}
  self.qoi_bad_meanval={}
  for var in myvars:
@@ -70,6 +86,7 @@ def train_surrogate(self,myvars):
     }
     clf = MLPRegressor(max_iter=1000, early_stopping=True, validation_fraction=0.2, \
           n_iter_no_change=10, random_state=42)
+    # Hyperparameter tuning using GridSearchCV
     grid = GridSearchCV(clf, param_grid, n_jobs= -1, cv=5)
     grid.fit(ptrain_norm, ytrain_norm)
 
@@ -97,6 +114,21 @@ def train_surrogate(self,myvars):
       plt.close()
 
 def run_surrogate(self,parms,myvars):
+  """Run the surrogate model for the specified parameters and variables.
+
+  Parameters
+  ----------
+  parms : numpy.ndarray
+      The parameters to be used for the surrogate model.
+  myvars : list
+      List of variable names for which to run the surrogate model.
+
+  Returns
+  -------
+  surrogate_output : dict
+      A dictionary containing the surrogate model outputs for the specified variables.
+  """
+
   surrogate_output={}
   for var in myvars:
     parms_norm = self.pscaler[var].transform(parms)

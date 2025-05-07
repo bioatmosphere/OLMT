@@ -11,13 +11,27 @@ matplotlib.use('Agg')
 
 
 def GSA(self, myvars, n_saltelli=8192):
+    """
+    Perform Global Sensitivity Analysis (GSA) using the Saltelli method.
+
+    Calls run_surrogate() in surrogate_NN.py for surrogate model evaluation.
+
+    Parameters
+    ----------
+    myvars : list
+        List of variable names for which to perform GSA.
+    n_saltelli : int
+        Number of Saltelli samples to generate. Default is 8192.
+    """
+
     #Get parameter bounds
     pbounds = np.zeros([self.nparms_ensemble,2],float)
     for p in range(0,self.nparms_ensemble):
         print(p, self.nparms_ensemble, self.ensemble_pmin[p])
         pbounds[p,0]=self.ensemble_pmin[p]
         pbounds[p,1]=self.ensemble_pmax[p]
-
+    
+    #Generate Saltelli samples
     problem = {
             'num_vars': self.nparms_ensemble,
             'names': self.ensemble_parms,
@@ -25,10 +39,12 @@ def GSA(self, myvars, n_saltelli=8192):
             }
     psamples = saltelli.sample(problem, n_saltelli)
 
+    #Run surrogate model
     surrogate_output = self.run_surrogate(psamples, myvars)
+
+    #Run GSA
     self.sens_main={}
     self.sens_tot={}
-
     for v in myvars:
       nvar = surrogate_output[v].shape[1]
       self.sens_main[v] = np.zeros([self.nparms_ensemble,nvar],float)
@@ -40,6 +56,15 @@ def GSA(self, myvars, n_saltelli=8192):
 
     
 def plot_GSA(self, myvars):
+    """
+    Plot the results of the Global Sensitivity Analysis (GSA) for the specified variables.
+    
+    Parameters
+    ----------
+    myvars : list
+        List of variable names for which to plot GSA results.
+    """
+
     UQ_output = './UQ_output/' + self.casename + '/GSA'
     os.makedirs(UQ_output, exist_ok=True)  # Ensures the directory exists
     

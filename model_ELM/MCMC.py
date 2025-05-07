@@ -9,7 +9,25 @@ import matplotlib.pyplot as plt
 from optparse import OptionParser
 
 def calc_posterior(self,parms,myvars):
-    #Calculate the posterior (prior and log likelihood)
+    """Calculate the posterior (prior and log likelihood)
+
+    Calls run_suggrogate() in surrogate_NN.py for surrogate model evaluation.
+
+    Parameters
+    ----------
+    parms : array-like
+        Parameter values for which to calculate the posterior.
+    myvars : list
+        List of variable names for which to calculate the posterior.
+    
+    Returns
+    -------
+    post : float
+        The posterior value.
+    output : dict
+        The model output for the specified variables.
+    """
+
     line = 0
     #Uniform priors
     prior = 1.0
@@ -39,9 +57,33 @@ def calc_posterior(self,parms,myvars):
     #print(post)
     return(post, output)
 
-#-------------------------------- MCMC ------------------------------------------------------
-
 def MCMC(self, parms, myvars, nevals, type='uniform', nburn=1000, burnsteps=10, default_output=[]):
+    """
+    Perform Markov Chain Monte Carlo (MCMC) to estimate the posterior distribution of parameters.
+
+    Parameters
+    ----------
+    parms : array-like
+        Initial parameter values for MCMC sampling.
+    myvars : list
+        List of variable names for which to perform MCMC sampling.
+    nevals : int
+        Number of evaluations for MCMC sampling.
+    type : str
+        Type of MCMC sampling to perform. Default is 'uniform'.
+    nburn : int
+        Number of burn-in steps for MCMC sampling. Default is 1000.
+    burnsteps : int
+        Number of burn-in steps for MCMC sampling. Default is 10.
+    default_output : list
+        Default output values for comparison. Default is empty list.
+
+    Returns
+    -------
+    parms_best : array-like
+        Best parameter values found during MCMC sampling.
+    """
+    
     UQ_output='./UQ_output/'+self.casename
     print(os.path.abspath(UQ_output))
     #Metropolis-Hastings Markov Chain Monte Carlo with adaptive sampling

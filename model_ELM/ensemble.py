@@ -4,8 +4,9 @@ import os, sys, csv, time, math
 import numpy as np
 import datetime
 
-#Read the parameter list file
 def read_parm_list(self, parm_list=''):
+    """Read the parameter list file"""
+
     os.chdir(self.OLMTdir)
     if (os.path.exists(parm_list)):
         myfile = open(parm_list,'r')
@@ -81,7 +82,23 @@ def create_ensemble_script(self, walltime=6):
     self.rundir_UQ = self.runroot+'/UQ/'+self.casename
 
 def create_multisite_script(self,sites,scriptdir, walltime=6):
-    #Create the PBS script we will submit to run multiple sites
+    """Create the PBS script we will submit to run multiple sites.
+
+    Parameters
+    ----------
+    sites : list
+        List of sites to run.
+    scriptdir : str
+        Directory to write the script to.
+    walltime : int
+        Walltime for the job in hours.
+
+    Returns
+    -------
+    str
+        Path to the created script.
+    """
+    
     os.chdir(self.casedir)
     #Get the LD_LIBRARY_PATH from software environment
     softenv = open('software_environment.txt','r')

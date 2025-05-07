@@ -101,9 +101,30 @@ class ELMcase():
         self.postproc_endyear=9999
         self.namelist_options=namelist_options
         self.mpilib=''
+        self.tam = False
 
   def setup_ensemble(self, sampletype='monte_carlo',parm_list='', ensemble_file='', \
           np_ensemble=64, nsamples=100, obs={}, obs_err={}):
+    """Setup the ensemble for the ELM case.
+    
+    Parameters:
+
+    sampletype : str
+        Type of sampling method to use. Default is 'monte_carlo'.
+    parm_list : str
+        Path to the parameter list file. Default is ''.
+    ensemble_file : str 
+        Path to the ensemble file. Default is ''.
+    np_ensemble : int
+        Number of ensemble members. Default is 64.
+    nsamples : int
+        Number of samples to generate. Default is 100.
+    obs : dict
+        Dictionary of observed data. Default is {}.
+    obs_err : dict
+        Dictionary of observed data errors. Default is {}.
+    """
+
     read_parm_list(self, parm_list=parm_list)
     if (ensemble_file == ''):
       create_samples(self, sampletype=sampletype, parm_list=parm_list,nsamples=nsamples)
@@ -282,7 +303,6 @@ class ELMcase():
         self.finidat_yst=str(10000+finidat_year)[1:]
       self.has_finidat=True
 
-#-----------------------------------------------------------------------------------------
   def create_case(self, machine='',casename=''):
     if (casename == ''):
       #construct default casename
@@ -448,6 +468,14 @@ class ELMcase():
       return result.stdout.decode('utf-8')
 
   def setup_case(self):
+    """Setup the case by modifying the xml files and running case.setup
+    
+
+    Parameters
+    ----------
+    
+    """
+
     os.chdir(self.casedir)
     #env_build
     self.xmlchange('SAVE_TIMING',value='FALSE')
@@ -600,7 +628,7 @@ class ELMcase():
                 +"trop_mozart_aero/aero/aerosoldep_rcp4.5_monthly_1849-2104_1.9x2.5_c100402.nc'")
     #Excluded keys in case_options that are not namelist options (handled elsewhere)
     keys_exclude = ['suffix','surffile','domainfile','pftdynfile','paramfile','fates_paramfile', \
-            'humhol','metdir','surffile_global','pftdynfile_global','domainfile_global']
+            'humhol','metdir','surffile_global','pftdynfile_global','domainfile_global','tam']
     #Custom namelist options
     for key in self.case_options.keys():
         if (not key in keys_exclude and not 'restart_' in key):
@@ -611,6 +639,8 @@ class ELMcase():
                 self.customize_namelist(variable=key,value=str(self.case_options[key]))
         elif ('humhol' in key):
             self.humhol=True
+        elif ('tam' in key):
+           self.tam = True
     if ('ad_spinup' in self.casename):    #Turn on supplemental P for ad spinup
         self.customize_namelist(variable='suplphos',value="'ALL'")
 
@@ -629,6 +659,8 @@ class ELMcase():
       self.xmlchange('LND_DOMAIN_FILE',value=domainfilename)
 
     #global CPPDEF modifications
+    if (self.tam):
+        self.cppdefs='TAM'
     if (self.humhol):
         self.cppdefs='HUM_HOL'
     if (self.is_bypass()):
