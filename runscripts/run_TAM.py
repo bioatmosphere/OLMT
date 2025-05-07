@@ -26,8 +26,8 @@ mettype = 'gswp3'              #Site or reanalysis product to use (site, gswp3, 
 case_suffix = ''               #Identifier for cases (leave blank if none)
 
 if (runtype == 'site'):
-    sites = 'US-UMB'           #Site name, list of site names, or 'all' for all sites in site group
-    sitegroup = 'AmeriFlux'       #Sites defined in <inputdata>/lnd/clm2/PTCLM/<sitegroup>_sitedata.txt
+    sites = 'US-Ho1'           #Site name, list of site names, or 'all' for all sites in site group
+    sitegroup = 'TAM'       #Sites defined in <inputdata>/lnd/clm2/PTCLM/<sitegroup>_sitedata.txt
     numproc = 1
 else:
     region_name = 'region'   #Set the name of the region/point list to be simulated
@@ -42,35 +42,59 @@ res = 'hcru_hcru'          #Resolution of global files to extract from
 use_cpl_bypass = True      #Coupler bypass for meteorology
 use_SP         = False     #Use Satellite phenolgy mode (doesn't yet work with FATES-SP)
 use_fates      = False     #Use FATES compsets
-fates_nutrient = False      #Use FATES nutrient (parteh_mode = 2)
-
-nyears_ad      =   40      #number of years for ad spinup
-nyears_final   =   40      #number of years for final spinup OR for SP run
-nyears_trans   =  164      #number of years for transient run 
-                           #  If -1, the final year will be the last year of forcing data.
-run_startyear  = 1850      #Starting year for transient run OR for SP run
+fates_nutrient = False     #Use FATES nutrient (parteh_mode = 2)
+#number of years for ad spinup
+nyears_ad      = 200
+#number of years for final spinup OR for SP run      
+nyears_final   = 400
+#number of years for transient run 
+# If -1, the final year will be the last year of forcing data.      
+nyears_trans   = 165
+#Starting year for transient run OR for SP run      
+run_startyear  = 1850
 
 
 #---------------------Optional inputs via namelist variables------------------------
 #Define a dictionary to handle namelist options.
 #note:  use surffile, domainfile, pftdynfile, metdir instead of the standard namelist variables for those files.
 #case_options['option'] = value or [value1, value2, value3] if applying different options to different compsets
-case_options={} 
+case_options={}
+case_options['tam'] = True
+case_options['use_nofire'] = '.true.'
+case_options['paramfile'] = '/ccsopen/home/6lw/models/OLMT/inputdata/tam_params.nc' 
 #case_options['fates_paramfile'] = inputdata+'/lnd/clm2/paramdata/fates_params_api.32.0.0_pft1_c231215.nc'
 #case_options['hist_mfilt']  = '1'
 #case_options['hist_nhtfrq'] = '0'
 
 
 #--------------------ensemble options------------------------------------------------
-
-parm_list      = ''  #'parm_list_example' #Set parameter list (leave blank for no ensemble)
+#Set parameter list (leave blank for no ensemble)
+parm_list      = 'inputdata/parm_list_tam'  
 nsamples       =  1000    #number of samples to run
 np_ensemble    =  384    #number of ensemble numbers to run in parallel (MUST be <= nsamples)
 ensemble_file  = ''     #File containing samples (if blank, OLMT will generate one)
-postproc_vars  = ['GPP','ER','NPP','NEE','TLAI','FSH','EFLX_LH_TOT']  #Variables to automatically post-process
-postproc_startyear = 2007
-postproc_endyear   = 2008
-postproc_freq      = 'monthly'   #Can be daily, monthly, annual
+#Variables to automatically post-process
+postproc_vars  = ['GPP','ER','NPP','NEE','BGNPP','TLAI','FSH','EFLX_LH_TOT','FROOTTC','FROOTAC','FROOTMC']  
+postproc_startyear = 1991
+postproc_endyear   = 2012
+#Can be daily, monthly, annual
+postproc_freq      = 'annual'   
+
+#Observations to use in calibration (must match a model output variable in name/units, and the 
+#  length of the postprocessed record 
+#This could be replaced with code to read an observation file.
+observations = {}
+#Note: observations are from a nutrient-enabled simulation
+#fates_alloc_storage_cushion = 1.3813409878873
+#fates_leaf_vcmax25top = 48.1649986078143 ;
+#fates_maintresp_leaf_ryan1991_baserate = 2.07131195058174e-06 ;
+#fates_q10_mr = 1.3504971149054 
+# observations['FATES_NPP'] =  np.array([3.6148E-08,3.4145E-08,3.3922E-08]) #kgC m-2 s-1
+# observations['FATES_VEGC'] = np.array([1.1578E+01,1.1578E+01,1.1519E+01]) #kgC m-2
+# observation_error = {}
+# #For this example, assume 5% error
+# observation_error['FATES_NPP'] = observations['FATES_NPP']*0.05
+# observation_error['FATES_VEGC'] = observations['FATES_VEGC']*0.05
 
 #----------------------Define treatment cases ----------------------------------------
 #
