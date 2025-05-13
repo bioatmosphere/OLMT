@@ -60,7 +60,10 @@ run_startyear  = 1850      #Starting year for transient run, SP run or FATES C-o
 #Define a dictionary to handle namelist options.
 #note:  use surffile, domainfile, pftdynfile, metdir instead of the standard namelist variables for those files.
 #case_options['option'] = value or [value1, value2, value3] if applying different options to different compsets
-case_options={} 
+case_options={}
+case_options['tam'] = True
+case_options['use_nofire'] = '.true.'
+case_options['paramfile'] = '/ccsopen/home/6lw/models/OLMT/inputdata/tam_params.nc' 
 #case_options['metdir'] = '/gpfs/wolf2/cades/cli185/proj-shared/zdr/elm-olmt/runscripts'
 #case_options['fates_paramfile'] = inputdata+'/lnd/clm2/paramdata/fates_params_api.32.0.0_pft1_c231215.nc'
 #case_options['use_fates_planthydro'] = '.true.'
@@ -87,7 +90,7 @@ observations = {}
 #fates_q10_mr = 1.3504971149054 
 # observations['FATES_NPP'] =  np.array([3.6148E-08,3.4145E-08,3.3922E-08]) #kgC m-2 s-1
 # observations['FATES_VEGC'] = np.array([1.1578E+01,1.1578E+01,1.1519E+01]) #kgC m-2
-# observation_error = {}
+observation_error = {}
 # #For this example, assume 5% error
 # observation_error['FATES_NPP'] = observations['FATES_NPP']*0.05
 # observation_error['FATES_VEGC'] = observations['FATES_VEGC']*0.05
