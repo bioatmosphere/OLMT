@@ -15,7 +15,7 @@ def set_histvars(self,spinup=-1,hist_mfilt=-9999,hist_nhtfrq=-9999):
         History file frequency. Default is -9999, which means no frequency.
     """
     
-   if (spinup>0):
+    if (spinup>0):
       #TAM: need to replace FROOTC
       var_list_spinup = ['PPOOL', 'EFLX_LH_TOT', 'RETRANSN', 'PCO2', 'PBOT', 'NDEP_TO_SMINN', 'OCDEP', \
                     'BCDEP', 'COL_FIRE_CLOSS', 'HDM', 'LNFM', 'NEE', 'GPP', 'FPSN', 'AR', 'HR', \
@@ -80,7 +80,7 @@ def set_histvars(self,spinup=-1,hist_mfilt=-9999,hist_nhtfrq=-9999):
                 self.customize_namelist(variable='hist_mfilt',value='1,365')
                 self.customize_namelist(variable='hist_nhtfrq',value='-8760,-24')
           self.customize_namelist(variable='hist_fincl2',value=vst_pp[:-1])
-   else:
+    else:
       #Transient simulation
       if (self.postproc_vars == []):
         #Default to daily output for all variables if not postproc vars

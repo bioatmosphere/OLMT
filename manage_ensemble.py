@@ -1,8 +1,3 @@
-"""Manages the ensemble simulations and performs post-processing of model output
-
-
-"""
-
 #!/usr/bin/env python
 import sys,os, time
 import numpy as np
