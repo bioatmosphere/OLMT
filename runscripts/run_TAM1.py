@@ -70,7 +70,7 @@ case_options['paramfile'] = '/ccsopen/home/6lw/models/OLMT/inputdata/tam_params.
 
 #--------------------ensemble options------------------------------------------------
 
-parm_list      = 'nputdata/parm_list_tam'  #Set parameter list (leave blank for no ensemble)
+parm_list      = 'inputdata/parm_list_tam'  #Set parameter list (leave blank for no ensemble)
 nsamples       =  256    #number of samples to run
 np_ensemble    =  256    #number of ensemble numbers to run in parallel (MUST be <= nsamples)
 ensemble_file  = ''     #File containing samples (if blank, OLMT will generate one)
