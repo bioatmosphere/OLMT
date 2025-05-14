@@ -3,6 +3,18 @@ import re, os, sys, csv, time, math
 import numpy
 
 def set_histvars(self,spinup=-1,hist_mfilt=-9999,hist_nhtfrq=-9999):
+    """Set history variables for ELM simulation.
+
+    Parameters
+    ----------
+    spinup : int
+        Number of years for spinup. Default is -1, which means no spinup.
+    hist_mfilt : int
+        History file filter. Default is -9999, which means no filter.
+    hist_nhtfrq : int
+        History file frequency. Default is -9999, which means no frequency.
+    """
+    
    if (spinup>0):
       #TAM: need to replace FROOTC
       var_list_spinup = ['PPOOL', 'EFLX_LH_TOT', 'RETRANSN', 'PCO2', 'PBOT', 'NDEP_TO_SMINN', 'OCDEP', \

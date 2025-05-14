@@ -1,3 +1,8 @@
+"""Manages the ensemble simulations and performs post-processing of model output
+
+
+"""
+
 #!/usr/bin/env python
 import sys,os, time
 import numpy as np
@@ -6,8 +11,6 @@ import pickle
 import model_ELM
 from optparse import OptionParser
 
-#Python code used to manage the ensemble simulations 
-#  and perform post-processing of model output.
 
 parser = OptionParser()
 

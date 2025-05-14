@@ -13,6 +13,8 @@ from datetime import datetime
 import xarray as xr
 
 class ELMcase():
+  """Class to manage ELM case setup and execution"""
+
   def __init__(self,caseid='',compset='ICBELMBC',suffix='',site='',sitegroup='AmeriFlux', \
             res='',tstep=1,np=1,nyears=1,startyear=-1, machine='', queue='', \
             exeroot='', modelroot='', runroot='',caseroot='',inputdata='', \
@@ -107,22 +109,38 @@ class ELMcase():
           np_ensemble=64, nsamples=100, obs={}, obs_err={}):
     """Setup the ensemble for the ELM case.
     
-    Parameters:
+    This function reads the parameter list file and creates an ensemble of
+    parameter samples. If an ensemble file is provided, it will be used to
+    initialize the samples. Otherwise, new samples will be created based on
+    the specified sampling method (e.g., Monte Carlo, Latin Hypercube, Sobol).
+    The function also sets up the ensemble script for running the ELM model
+    with the generated samples.
+    The function also sets up the observed data and errors for the ensemble.
+    The observed data is a dictionary with keys as variable names and values
+    as the observed data. The observed errors are also a dictionary with
+    keys as variable names and values as the observed errors.
 
+
+    Parameters
+    ----------
     sampletype : str
-        Type of sampling method to use. Default is 'monte_carlo'.
+        Type of sampling to use. Options are 'monte_carlo', 'latin_hypercube', 'sobol'.
     parm_list : str
-        Path to the parameter list file. Default is ''.
-    ensemble_file : str 
-        Path to the ensemble file. Default is ''.
+        Path to the parameter list file.
+    ensemble_file : str
+        Path to the ensemble file. If not provided, samples will be created.
     np_ensemble : int
-        Number of ensemble members. Default is 64.
+        Number of ensemble members to create.
     nsamples : int
-        Number of samples to generate. Default is 100.
+        Number of samples to create.
     obs : dict
-        Dictionary of observed data. Default is {}.
+        Dictionary of observed data for the ensemble.
     obs_err : dict
-        Dictionary of observed data errors. Default is {}.
+        Dictionary of observed data errors for the ensemble.
+
+    Returns
+    --------
+    None
     """
 
     read_parm_list(self, parm_list=parm_list)
@@ -880,8 +898,26 @@ class ELMcase():
         sys.exit(1)
 
   def submit_case(self,depend=-1,ensemble=False, multisite_script=''):
+    """Submit the case to the queue system.  If depend > 0, then submit with
+    
     #Create a pickle file of the model object for later use
     #Keep a copy in the case directory and OLMT directory
+
+    Parameters
+    ----------
+    depend : int
+        Job id of the job to depend on.  Default is -1 (no dependency)
+    ensemble : bool
+        If True, submit the ensemble script.  Default is False
+    multisite_script : str
+        If not empty, submit the multisite script.  Default is ''
+
+    Returns
+    -------
+    int
+        Job id of the submitted job
+    """
+
     self.create_pkl(outdir=self.casedir)
     self.create_pkl(outdir=self.OLMTdir+'/pklfiles')
 
@@ -896,6 +932,7 @@ class ELMcase():
         scriptfile = multisite_script
     else:
         scriptfile = './case.submit'
+    
     os.chdir(self.casedir)
     if (depend > 0 and not self.noslurm):
       if (ensemble or multisite_script != ''):
@@ -920,6 +957,7 @@ class ELMcase():
         jobnum = int(output.split()[-1])
         print('\nSubmitted '+str(jobnum))
     os.chdir(self.OLMTdir)
+
     return jobnum
 
   def create_pkl(self, outdir='./pklfiles'):
