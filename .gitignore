@@ -17,3 +17,5 @@ slurm-*.out
 mcsamples*.txt
 
 # user defined files
+
+.DS_STORE

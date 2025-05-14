@@ -1,3 +1,8 @@
+"""Manages the ensemble simulations and performs post-processing of model output
+
+
+"""
+
 #!/usr/bin/env python
 import sys,os, time
 import numpy as np
@@ -6,8 +11,6 @@ import pickle
 import model_ELM
 from optparse import OptionParser
 
-#Python code used to manage the ensemble simulations 
-#  and perform post-processing of model output.
 
 parser = OptionParser()
 
@@ -45,9 +48,9 @@ def get_nodelist():
               mynodes.append(node_prefix+nstr)
           else:
               if ('baseline' in mycase.machine):
-                nstr=str(n2)
+                nstr=str(n2).strip(']')
               else:
-                nstr=str(10000+n2)[1:]
+                nstr=str(10000+n2)[1:].strip(']')
               mynodes.append(node_prefix+nstr)
     else:
         mynodes.append(n)
@@ -111,7 +114,7 @@ def postprocess_ensemble(n):
             hnum=2
             mypfts=mycase.postproc_pfts
         for p in mypfts:
-          if (mycase.postproc_freq == 'daily'):  #default
+          if (mycase.postproc_freq == 'daily' or mycase.postproc_freq == 'hourly'):  #default
             mycase.postprocess(v, ens_num=n,startyear=mycase.postproc_startyear, \
                   endyear=mycase.postproc_endyear,index=p,hnum=hnum)
           elif (mycase.postproc_freq == 'monthly'):  #monthly
@@ -169,22 +172,27 @@ if (not options.UQ_only):
 
 #UQ part of code
 
-#Train surrogate models
-mycase.train_surrogate(mycase.postproc_vars)
+if (mycase.postproc_vars != []):
+    #Train surrogate models
+    mycase.train_surrogate(mycase.postproc_vars)
 
-#run GSA
-mycase.GSA(mycase.postproc_vars)
+    #run GSA
+    mycase.GSA(mycase.postproc_vars)
+    mycase.plot_GSA(mycase.postproc_vars)
 
-#run MCMC
-#Set intial values for parameters
-if (mycase.obs):
-  parms=((np.array(mycase.ensemble_pmax)+np.array(mycase.ensemble_pmin))/2)
+    #Save postprocessed output
+    mycase.create_pkl(outdir=mycase.OLMTdir+'/pklfiles/')
 
-  #Run MCMC for the 2 varibles of interest
-  mycase.MCMC(parms, postproc_vars, 100000)
+    #run MCMC
+    #Set intial values for parameters
+    if (mycase.obs):
+        parms=((np.array(mycase.ensemble_pmax)+np.array(mycase.ensemble_pmin))/2)
+        #Run MCMC for the 2 varibles of interest
+        mycase.MCMC(parms, mycase.postproc_vars, 100000)
 
-#Save postprocessed output
-mycase.create_pkl()
+        #Save postprocessed output
+        mycase.create_pkl(outdir=mycase.OLMTdir+'/pklfiles/')
+
 
 
 

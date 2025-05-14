@@ -10,8 +10,11 @@ from .run_GSA import *
 from .MCMC import *
 from .netcdf4_functions import *
 from datetime import datetime
+import xarray as xr
 
 class ELMcase():
+  """Class to manage ELM case setup and execution"""
+
   def __init__(self,caseid='',compset='ICBELMBC',suffix='',site='',sitegroup='AmeriFlux', \
             res='',tstep=1,np=1,nyears=1,startyear=-1, machine='', queue='', \
             exeroot='', modelroot='', runroot='',caseroot='',inputdata='', \
@@ -100,9 +103,46 @@ class ELMcase():
         self.postproc_endyear=9999
         self.namelist_options=namelist_options
         self.mpilib=''
+        self.tam = False
 
   def setup_ensemble(self, sampletype='monte_carlo',parm_list='', ensemble_file='', \
           np_ensemble=64, nsamples=100, obs={}, obs_err={}):
+    """Setup the ensemble for the ELM case.
+    
+    This function reads the parameter list file and creates an ensemble of
+    parameter samples. If an ensemble file is provided, it will be used to
+    initialize the samples. Otherwise, new samples will be created based on
+    the specified sampling method (e.g., Monte Carlo, Latin Hypercube, Sobol).
+    The function also sets up the ensemble script for running the ELM model
+    with the generated samples.
+    The function also sets up the observed data and errors for the ensemble.
+    The observed data is a dictionary with keys as variable names and values
+    as the observed data. The observed errors are also a dictionary with
+    keys as variable names and values as the observed errors.
+
+
+    Parameters
+    ----------
+    sampletype : str
+        Type of sampling to use. Options are 'monte_carlo', 'latin_hypercube', 'sobol'.
+    parm_list : str
+        Path to the parameter list file.
+    ensemble_file : str
+        Path to the ensemble file. If not provided, samples will be created.
+    np_ensemble : int
+        Number of ensemble members to create.
+    nsamples : int
+        Number of samples to create.
+    obs : dict
+        Dictionary of observed data for the ensemble.
+    obs_err : dict
+        Dictionary of observed data errors for the ensemble.
+
+    Returns
+    --------
+    None
+    """
+
     read_parm_list(self, parm_list=parm_list)
     if (ensemble_file == ''):
       create_samples(self, sampletype=sampletype, parm_list=parm_list,nsamples=nsamples)
@@ -199,7 +239,9 @@ class ELMcase():
             if mettype == '':
               print('Error: When specifying metdir, Must also specify met type (e.g. gswp3)')
               sys.exit(1)
-        self.metdir=metdir
+        self.metdir = metdir
+        if self.forcing == 'site':
+            self.metdir = metdir+'/1x1pt_'+self.site
     self.get_metdata_year_range()
 
   def is_bypass(self):
@@ -240,6 +282,32 @@ class ELMcase():
         self.fates_paramfile = self.get_namelist_variable('fates_paramfile')
     print('FATES parameter file : '+self.fates_paramfile)
     os.system('cp '+self.fates_paramfile+' '+self.OLMTdir+'/temp/fates_paramfile.nc')
+    if (self.fates_pft >= 0):
+        print('Extracting PFT '+str(self.fates_pft))
+        if (self.pft_duplicates > 1):
+            fname_list=[]
+            print('Duplicating '+str(self.pft_duplicates)+' times.')
+            for pf in range(0,self.pft_duplicates):
+                fname = self.OLMTdir+'/temp/fates_paramfile_'+str(pf)+'.nc'
+                os.system('ncks -O -d fates_pft,'+str(self.fates_pft)+','+str(self.fates_pft)+' ' \
+                        +self.OLMTdir+'/temp/fates_paramfile.nc'+' -o '+fname)
+                fname_list.append(fname)
+            # Open and concatenate along the 'fates_pft' dimension
+            datasets = [xr.open_dataset(f) for f in fname_list]
+            # Find variables that have 'fates_pft' as a dimension
+            vars_with_fpft = [var for var in datasets[0].data_vars if 'fates_pft' in datasets[0][var].dims]
+            # Subset only those vars
+            datasets_trimmed = [ds[vars_with_fpft] for ds in datasets]
+            ds_concat = xr.concat(datasets_trimmed, dim='fates_pft')
+            # Add back the rest of the variables (those without 'fates_pft')
+            vars_wo_fpft = [var for var in datasets[0].data_vars if 'fates_pft' not in datasets[0][var].dims]
+            for var in vars_wo_fpft:
+                ds_concat[var] = datasets[0][var]  # Use first file's value
+            ds_concat.to_netcdf(self.OLMTdir+'/temp/fates_paramfile.nc', mode='w')
+            os.system('rm fates_paramfile_*.nc')
+        else:
+            os.system('ncks -O -d fates_pft,'+str(self.fates_pft)+','+str(self.fates_pft)+' '+ \
+                self.OLMTdir+'/temp/fates_paramfile.nc -o '+self.OLMTdir+'/temp/fates_paramfile.nc')
 
   def set_finidat_file(self, finidat_case='', finidat_year=0, finidat=''):
       if (finidat_case != ''):
@@ -253,7 +321,6 @@ class ELMcase():
         self.finidat_yst=str(10000+finidat_year)[1:]
       self.has_finidat=True
 
-#-----------------------------------------------------------------------------------------
   def create_case(self, machine='',casename=''):
     if (casename == ''):
       #construct default casename
@@ -419,6 +486,14 @@ class ELMcase():
       return result.stdout.decode('utf-8')
 
   def setup_case(self):
+    """Setup the case by modifying the xml files and running case.setup
+    
+
+    Parameters
+    ----------
+    
+    """
+
     os.chdir(self.casedir)
     #env_build
     self.xmlchange('SAVE_TIMING',value='FALSE')
@@ -548,8 +623,13 @@ class ELMcase():
     self.customize_namelist(variable='fsoilordercon',value="'"+self.rundir+"/CNP_parameters.nc'")
     #Fates options - TODO add nutrient/parteh options
     if ('ED' in self.compset or 'FATES' in self.compset):
-        if self.fates_nutrient:
+        if 'CN' in self.nutrients:
+          #Note, if carbon only, use parteh_mode = 1.
           self.customize_namelist(variable='fates_parteh_mode',value='2')
+          bldnml = '" -nutrient '+self.nutrients.lower()+' -nutrient_comp_pathway '+ \
+                  self.nutrient_comp.lower()+' -soil_decomp '+self.soil_decomp.lower()+'"'
+          bldnml = bldnml.replace('cnt','century')
+          self.xmlchange('ELM_BLDNML_OPTS',append=bldnml)
         self.customize_namelist(variable='fates_paramfile',value="'"+self.rundir+"/fates_paramfile.nc'")
         #if (self.fates_logging):
         #    self.customize_namelist(variable='use_fates_logging',value='.true.')
@@ -566,7 +646,7 @@ class ELMcase():
                 +"trop_mozart_aero/aero/aerosoldep_rcp4.5_monthly_1849-2104_1.9x2.5_c100402.nc'")
     #Excluded keys in case_options that are not namelist options (handled elsewhere)
     keys_exclude = ['suffix','surffile','domainfile','pftdynfile','paramfile','fates_paramfile', \
-            'humhol','metdir','surffile_global','pftdynfile_global','domainfile_global']
+            'humhol','metdir','surffile_global','pftdynfile_global','domainfile_global','tam']
     #Custom namelist options
     for key in self.case_options.keys():
         if (not key in keys_exclude and not 'restart_' in key):
@@ -577,6 +657,8 @@ class ELMcase():
                 self.customize_namelist(variable=key,value=str(self.case_options[key]))
         elif ('humhol' in key):
             self.humhol=True
+        elif ('tam' in key):
+           self.tam = True
     if ('ad_spinup' in self.casename):    #Turn on supplemental P for ad spinup
         self.customize_namelist(variable='suplphos',value="'ALL'")
 
@@ -595,6 +677,8 @@ class ELMcase():
       self.xmlchange('LND_DOMAIN_FILE',value=domainfilename)
 
     #global CPPDEF modifications
+    if (self.tam):
+        self.cppdefs='TAM'
     if (self.humhol):
         self.cppdefs='HUM_HOL'
     if (self.is_bypass()):
@@ -690,7 +774,7 @@ class ELMcase():
                   mypresaero = '"datm.streams.txt.presaero.trans_1850-2000 1850 1850 2000"'
                   myco2      = ', "datm.streams.txt.co2tseries.20tr 1766 1766 2010"'
               elif ('1850' in self.compset):
-                  mypresaero = '"datm.streams.txt.presaero.clim_1850 1 1 1"'
+                  mypresaero = '"datm.streams.txt.presaero.clim_1850 1 1850 1850"'
                   myco2=''
               else:
                   mypresaero = '"datm.streams.txt.presaero.clim_2000 1 2000 2000"'
@@ -780,16 +864,20 @@ class ELMcase():
           myinput.close()
           myoutput.close()
 
-      #reverse directories for CLM1PT and site
       if (self.forcing == 'site'):
           myinput  = open('./Buildconf/datmconf/datm.streams.txt.CLM1PT.ELM_USRDAT')
           myoutput = open('./user_datm.streams.txt.CLM1PT.ELM_USRDAT','w')
           for s in myinput:
               if ('CLM1PT_data' in s):
-                  temp = s.replace('CLM1PT_data', 'TEMPSTRING')
-                  s    = temp.replace('1x1pt'+'_'+self.site, 'CLM1PT_data')
-                  temp  =s.replace('TEMPSTRING', '1x1pt'+'_'+self.site)
-                  myoutput.write(temp)
+                  if (self.metdir != ''):
+                    #Replace with user-specified directory
+                    myoutput.write(self.metdir+'\n')
+                  else:
+                    #reverse directories for CLM1PT and site  
+                    temp = s.replace('CLM1PT_data', 'TEMPSTRING')
+                    s    = temp.replace('1x1pt'+'_'+self.site, 'CLM1PT_data')
+                    temp  =s.replace('TEMPSTRING', '1x1pt'+'_'+self.site)
+                    myoutput.write(temp)
               elif (('ED' in self.compset or 'FATES' in self.compset) and 'FLDS' in s):
                   print('Not including FLDS in atm stream file')
               else:
@@ -810,8 +898,26 @@ class ELMcase():
         sys.exit(1)
 
   def submit_case(self,depend=-1,ensemble=False, multisite_script=''):
+    """Submit the case to the queue system.  If depend > 0, then submit with
+    
     #Create a pickle file of the model object for later use
     #Keep a copy in the case directory and OLMT directory
+
+    Parameters
+    ----------
+    depend : int
+        Job id of the job to depend on.  Default is -1 (no dependency)
+    ensemble : bool
+        If True, submit the ensemble script.  Default is False
+    multisite_script : str
+        If not empty, submit the multisite script.  Default is ''
+
+    Returns
+    -------
+    int
+        Job id of the submitted job
+    """
+
     self.create_pkl(outdir=self.casedir)
     self.create_pkl(outdir=self.OLMTdir+'/pklfiles')
 
@@ -826,6 +932,7 @@ class ELMcase():
         scriptfile = multisite_script
     else:
         scriptfile = './case.submit'
+    
     os.chdir(self.casedir)
     if (depend > 0 and not self.noslurm):
       if (ensemble or multisite_script != ''):
@@ -850,6 +957,7 @@ class ELMcase():
         jobnum = int(output.split()[-1])
         print('\nSubmitted '+str(jobnum))
     os.chdir(self.OLMTdir)
+
     return jobnum
 
   def create_pkl(self, outdir='./pklfiles'):

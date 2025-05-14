@@ -4,8 +4,10 @@ import os, sys, csv, time, math
 import numpy as np
 import datetime
 
-#Read the parameter list file
 def read_parm_list(self, parm_list=''):
+    """Read the parameter list file
+    """
+
     os.chdir(self.OLMTdir)
     if (os.path.exists(parm_list)):
         myfile = open(parm_list,'r')
@@ -46,7 +48,10 @@ def create_samples(self,sampletype='monte_carlo',nsamples=100,parm_list=''):
     np.savetxt(self.ensemble_file,np.transpose(self.samples))
 
 def create_ensemble_script(self, walltime=6):
-    #Create the PBS script we will submit to run the ensemble
+    """Create the PBS script we will submit to run the ensemble
+
+    """
+
     os.chdir(self.casedir)
     #Get the LD_LIBRARY_PATH from software environment
     softenv = open('software_environment.txt','r')
@@ -56,6 +61,7 @@ def create_ensemble_script(self, walltime=6):
     softenv.close()
     self.npernode=int(self.xmlquery('MAX_TASKS_PER_NODE'))
     nnodes = int(np.ceil((self.np_ensemble*self.np)/self.npernode))
+
     myfile = open('case.submit_ensemble','w')
     myfile.write('#!/bin/bash -e\n\n')
     if (self.queue == 'debug'):
@@ -81,7 +87,23 @@ def create_ensemble_script(self, walltime=6):
     self.rundir_UQ = self.runroot+'/UQ/'+self.casename
 
 def create_multisite_script(self,sites,scriptdir, walltime=6):
-    #Create the PBS script we will submit to run multiple sites
+    """Create the PBS script we will submit to run multiple sites.
+
+    Parameters
+    ----------
+    sites : list
+        List of sites to run.
+    scriptdir : str
+        Directory to write the script to.
+    walltime : int
+        Walltime for the job in hours.
+
+    Returns
+    -------
+    str
+        Path to the created script.
+    """
+    
     os.chdir(self.casedir)
     #Get the LD_LIBRARY_PATH from software environment
     softenv = open('software_environment.txt','r')
@@ -141,7 +163,14 @@ def create_multisite_script(self,sites,scriptdir, walltime=6):
     return os.path.abspath('./'+fname)
 
 def ensemble_copy(self, ens_num):
+  """Create the ensemble directory and copy the original case files to it
 
+    Parameters
+    ----------
+    ens_num : int
+        Ensemble number to create.
+  """
+    
   gst=str(100000+int(ens_num))
 
   # create ensemble directory from original case 
@@ -241,7 +270,7 @@ def ensemble_copy(self, ens_num):
         myinput.close()
         os.system(' mv '+ens_dir+'/'+f+'.tmp '+ens_dir+'/'+f)
 
-  pnum = 0
+  #pnum = 0
   CNP_parms = ['ks_sorption', 'r_desorp', 'r_weather', 'r_adsorp', 'k_s1_biochem', 'smax', 'k_s3_biochem', \
              'r_occlude', 'k_s4_biochem', 'k_s2_biochem']
 
@@ -249,7 +278,9 @@ def ensemble_copy(self, ens_num):
   pnum=0
   parm_values = self.samples[:,ens_num-1]
   parm_indices = self.ensemble_pfts
+  # loop through all parameters and set them in the files
   for p in self.ensemble_parms:
+    # ...
     if ('INI' in p):
       if ('BGC' in self.casename):
          scalevars = ['soil3c_vr','soil3n_vr','soil3p_vr']
@@ -260,11 +291,13 @@ def ensemble_copy(self, ens_num):
          myvar = self.getncvar(finidat_file_new, v)
          myvar = parm_values[pnum] * myvar
          ierr = self.putncvar(finidat_file_new, v, myvar)
+    #...
     elif (p == 'lai'):
       myfile = surffile
       param = self.getncvar(myfile, 'MONTHLY_LAI')
       param[:,:,:,:] = parm_values[pnum]
       ierr = self.putncvar(myfile, 'MONTHLY_LAI', param)
+    # ...
     elif (p != 'co2'):
       if (p in CNP_parms):
          myfile= CNPfile
