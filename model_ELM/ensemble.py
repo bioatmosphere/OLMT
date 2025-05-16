@@ -47,7 +47,7 @@ def create_samples(self,sampletype='monte_carlo',nsamples=100,parm_list=''):
     os.system('mkdir -p parm_samples')
     np.savetxt(self.ensemble_file,np.transpose(self.samples))
 
-def create_ensemble_script(self, walltime=6):
+def create_ensemble_script(self, walltime=24):
     """Create the PBS script we will submit to run the ensemble
 
     """
