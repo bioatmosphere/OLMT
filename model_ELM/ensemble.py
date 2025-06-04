@@ -35,8 +35,19 @@ def read_parm_list(self, parm_list=''):
 #        parms_def.append(parm_file[p][
     
 
-#Create the samples file
 def create_samples(self,sampletype='monte_carlo',nsamples=100,parm_list=''):
+    """Create the samples file
+    
+    Parameters
+    ----------
+    sampletype : str
+        Type of sampling to do. Currently only 'monte_carlo' is supported.
+    nsamples : int
+        Number of samples to create.
+    parm_list : str
+        Path to the parameter list file. If not provided, the default parameter list will be used.
+    """
+
     self.nsamples=nsamples
     self.samples=np.zeros((self.nparms_ensemble,self.nsamples), float)
     for i in range(0,self.nsamples):
@@ -163,202 +174,220 @@ def create_multisite_script(self,sites,scriptdir, walltime=6):
     return os.path.abspath('./'+fname)
 
 def ensemble_copy(self, ens_num):
-  """Create the ensemble directory and copy the original case files to it
+    """Create the ensemble run directory
+
+    Method:
+        1. This function creates a new ensemble case directory based on the original case by
+        copying the original case files.
+        
+        2. It modifies the necessary files to set the parameters for the ensemble run.
+
+    TODO:
+        - Add support for more complex parameter modifications
+        
 
     Parameters
     ----------
-    ens_num : int
-        Ensemble number to create.
-  """
+        ens_num : int
+            Ensemble number to create.
+    """
     
-  gst=str(100000+int(ens_num))
+    gst=str(100000+int(ens_num))
 
-  # create ensemble directory from original case 
-  orig_dir = str(os.path.abspath(self.runroot)+'/'+self.casename+'/run')
-  ens_dir  = str(os.path.abspath(self.runroot)+'/UQ/'+self.casename+'/g'+gst[1:])
-		
-  os.system('mkdir -p '+ens_dir+'/timing/checkpoints')
-  os.system('rm -f '+ens_dir+'/*.log.* '+ens_dir+'/*.nc '+ens_dir+'/rpointer*')
-  os.system('cp  '+orig_dir+'/*_in* '+ens_dir)
-  os.system('cp  '+orig_dir+'/*nml '+ens_dir)
-  if (not ('CB' in self.casename)):
-    os.system('cp  '+orig_dir+'/*stream* '+ens_dir)
-  os.system('cp  '+orig_dir+'/*.rc '+ens_dir)
-  os.system('cp  '+orig_dir+'/surf*.nc '+ens_dir)
-  os.system('cp  '+orig_dir+'/domain*.nc '+ens_dir)
-  os.system('cp  '+orig_dir+'/*para*.nc '+ens_dir)
+    # create ensemble directory from original case 
+    orig_dir = str(os.path.abspath(self.runroot)+'/'+self.casename+'/run')
+    ens_dir  = str(os.path.abspath(self.runroot)+'/UQ/'+self.casename+'/g'+gst[1:])
+            
+    os.system('mkdir -p '+ens_dir+'/timing/checkpoints')
+    os.system('rm -f '+ens_dir+'/*.log.* '+ens_dir+'/*.nc '+ens_dir+'/rpointer*')
+    os.system('cp  '+orig_dir+'/*_in* '+ens_dir)
+    os.system('cp  '+orig_dir+'/*nml '+ens_dir)
+    if (not ('CB' in self.casename)):
+        os.system('cp  '+orig_dir+'/*stream* '+ens_dir)
+    os.system('cp  '+orig_dir+'/*.rc '+ens_dir)
+    os.system('cp  '+orig_dir+'/surf*.nc '+ens_dir)
+    os.system('cp  '+orig_dir+'/domain*.nc '+ens_dir)
+    os.system('cp  '+orig_dir+'/*para*.nc '+ens_dir)
 
 
-  # loop through all filenames, change directories in namelists, change parameter values
-  for f in os.listdir(ens_dir):
-    if (os.path.isfile(ens_dir+'/'+f) and (f[-2:] == 'in' or f[-3:] == 'nml' or 'streams' in f)):
-        myinput=open(ens_dir+'/'+f)
-        myoutput=open(ens_dir+'/'+f+'.tmp','w')
-        for s in myinput:
-            if ('fates_paramfile' in s):
-                paramfile_orig = ((s.split()[2]).strip("'"))
-                if (paramfile_orig[0:2] == './'):
-                  paramfile_orig = orig_dir+'/'+paramfile_orig[2:]
-                paramfile_new  = ens_dir+'/fates_params_'+gst[1:]+'.nc'
-                os.system('cp '+paramfile_orig+' '+paramfile_new)
-                os.system('nccopy -3 '+paramfile_new+' '+paramfile_new+'_tmp')
-                os.system('mv '+paramfile_new+'_tmp '+paramfile_new)
-                myoutput.write(" fates_paramfile = '"+paramfile_new+"'\n")
-                fates_paramfile = ens_dir+'/fates_params_'+gst[1:]+'.nc'
-            elif ('paramfile' in s):
-                paramfile_orig = ((s.split()[2]).strip("'"))
-                if (paramfile_orig[0:2] == './'):
-                   paramfile_orig = orig_dir+'/'+paramfile_orig[2:]
-                paramfile_new  = ens_dir+'/clm_params_'+gst[1:]+'.nc'
-                os.system('cp '+paramfile_orig+' '+paramfile_new)
-                os.system('nccopy -3 '+paramfile_new+' '+paramfile_new+'_tmp')
-                os.system('mv '+paramfile_new+'_tmp '+paramfile_new)
-                myoutput.write(" paramfile = '"+paramfile_new+"'\n")
-                pftfile = ens_dir+'/clm_params_'+gst[1:]+'.nc'
-            elif ('ppmv' in s and 'co2' in self.ensemble_parms):
-                myoutput.write(" co2_ppmv = "+str(parm_values[pnum_co2])+'\n')
-            elif ('fsoilordercon' in s):
-                CNPfile_orig = ((s.split()[2]).strip("'"))
-                if (CNPfile_orig[0:2] == './'):
-                   CNPfile_orig  = orig_dir+'/'+CNPfile_orig[2:]
-                CNPfile_new  = ens_dir+'/CNP_parameters_'+gst[1:]+'.nc'
-                os.system('cp '+CNPfile_orig+' '+CNPfile_new)
-                os.system('nccopy -3 '+CNPfile_new+' '+CNPfile_new+'_tmp')
-                os.system('mv '+CNPfile_new+'_tmp '+CNPfile_new)
-                myoutput.write(" fsoilordercon = '"+CNPfile_new+"'\n")
-                CNPfile = ens_dir+'/CNP_parameters_'+gst[1:]+'.nc'
-            elif ('fsurdat =' in s):
-                surffile_orig = ((s.split()[2]).strip("'"))
-                if (surffile_orig[0:2] == './'):
-                  surffile_orig = orig_dir+'/'+surffile_orig[2:]
-                surffile_new = ens_dir+'/surfdata_'+gst[1:]+'.nc'
-                os.system('cp '+surffile_orig+' '+surffile_new)
-                os.system('nccopy -3 '+surffile_new+' '+surffile_new+'_tmp')
-                os.system('mv '+surffile_new+'_tmp '+surffile_new)
-                myoutput.write(" fsurdat = '"+surffile_new+"'\n")
-                surffile = ens_dir+'/surfdata_'+gst[1:]+'.nc'
-            elif ('finidat = ' in s and self.has_finidat):
-                finidat_file_path = os.path.abspath(self.runroot)+'/UQ/'+self.dependcase+'/g'+gst[1:]
-                finidat_file_name = self.finidat.split('/')[-1]
-                #finidat_file_orig = self.finidat
-                finidat_file_new  = finidat_file_path+'/'+finidat_file_name 
-                #if ('ad_spinup' in self.dependcase): 
-                #        os.system('python adjust_restart.py --rundir '+finidat_file_path+' --casename '+ \
-                #            self.dependcase)
-                #os.system('cp '+finidat_file_orig+' '+finidat_file_new)
-                myoutput.write(" finidat = '"+finidat_file_new+"'\n")
-                #Make any requested restart modifications
-                for key in self.case_options.keys():
-                    if ('restart_' in key):
-                        var   = key[8:]
-                        value = self.case_options[key]
-                        ncval = self.getncvar(finidat_file_new, var)
-                        if ('*' in value):
-                            value = value*ncval
-                        if ('+' in value):
-                            value = value+ncval
-                        self.putncvar(finidat_file_new, var, value)
-            elif ('logfile =' in s):
-                #Get the current date and time
-                now = datetime.datetime.now()
-                #Format the date and time in %y%m%d-%H%M%S format
-                date_string = now.strftime("%y%m%d-%H%M%S")
-                myoutput.write(s.replace('`date +%y%m%d-%H%M%S`',date_string))
-            else:
-                myoutput.write(s.replace(orig_dir,ens_dir))
-        myoutput.close()
-        myinput.close()
-        os.system(' mv '+ens_dir+'/'+f+'.tmp '+ens_dir+'/'+f)
-
-  #pnum = 0
-  CNP_parms = ['ks_sorption', 'r_desorp', 'r_weather', 'r_adsorp', 'k_s1_biochem', 'smax', 'k_s3_biochem', \
+    # loop through all filenames, change directories in namelists, change parameter values
+    for f in os.listdir(ens_dir):
+        if (os.path.isfile(ens_dir+'/'+f) and (f[-2:] == 'in' or f[-3:] == 'nml' or 'streams' in f)):
+            myinput=open(ens_dir+'/'+f)
+            myoutput=open(ens_dir+'/'+f+'.tmp','w')
+            for s in myinput:
+                if ('fates_paramfile' in s):
+                    paramfile_orig = ((s.split()[2]).strip("'"))
+                    if (paramfile_orig[0:2] == './'):
+                    paramfile_orig = orig_dir+'/'+paramfile_orig[2:]
+                    paramfile_new  = ens_dir+'/fates_params_'+gst[1:]+'.nc'
+                    os.system('cp '+paramfile_orig+' '+paramfile_new)
+                    os.system('nccopy -3 '+paramfile_new+' '+paramfile_new+'_tmp')
+                    os.system('mv '+paramfile_new+'_tmp '+paramfile_new)
+                    myoutput.write(" fates_paramfile = '"+paramfile_new+"'\n")
+                    fates_paramfile = ens_dir+'/fates_params_'+gst[1:]+'.nc'
+                elif ('paramfile' in s):
+                    paramfile_orig = ((s.split()[2]).strip("'"))
+                    if (paramfile_orig[0:2] == './'):
+                    paramfile_orig = orig_dir+'/'+paramfile_orig[2:]
+                    paramfile_new  = ens_dir+'/clm_params_'+gst[1:]+'.nc'
+                    os.system('cp '+paramfile_orig+' '+paramfile_new)
+                    os.system('nccopy -3 '+paramfile_new+' '+paramfile_new+'_tmp')
+                    os.system('mv '+paramfile_new+'_tmp '+paramfile_new)
+                    myoutput.write(" paramfile = '"+paramfile_new+"'\n")
+                    pftfile = ens_dir+'/clm_params_'+gst[1:]+'.nc'
+                elif ('ppmv' in s and 'co2' in self.ensemble_parms):
+                    myoutput.write(" co2_ppmv = "+str(parm_values[pnum_co2])+'\n')
+                elif ('fsoilordercon' in s):
+                    CNPfile_orig = ((s.split()[2]).strip("'"))
+                    if (CNPfile_orig[0:2] == './'):
+                    CNPfile_orig  = orig_dir+'/'+CNPfile_orig[2:]
+                    CNPfile_new  = ens_dir+'/CNP_parameters_'+gst[1:]+'.nc'
+                    os.system('cp '+CNPfile_orig+' '+CNPfile_new)
+                    os.system('nccopy -3 '+CNPfile_new+' '+CNPfile_new+'_tmp')
+                    os.system('mv '+CNPfile_new+'_tmp '+CNPfile_new)
+                    myoutput.write(" fsoilordercon = '"+CNPfile_new+"'\n")
+                    CNPfile = ens_dir+'/CNP_parameters_'+gst[1:]+'.nc'
+                elif ('fsurdat =' in s):
+                    surffile_orig = ((s.split()[2]).strip("'"))
+                    if (surffile_orig[0:2] == './'):
+                    surffile_orig = orig_dir+'/'+surffile_orig[2:]
+                    surffile_new = ens_dir+'/surfdata_'+gst[1:]+'.nc'
+                    os.system('cp '+surffile_orig+' '+surffile_new)
+                    os.system('nccopy -3 '+surffile_new+' '+surffile_new+'_tmp')
+                    os.system('mv '+surffile_new+'_tmp '+surffile_new)
+                    myoutput.write(" fsurdat = '"+surffile_new+"'\n")
+                    surffile = ens_dir+'/surfdata_'+gst[1:]+'.nc'
+                elif ('finidat = ' in s and self.has_finidat):
+                    finidat_file_path = os.path.abspath(self.runroot)+'/UQ/'+self.dependcase+'/g'+gst[1:]
+                    finidat_file_name = self.finidat.split('/')[-1]
+                    #finidat_file_orig = self.finidat
+                    finidat_file_new  = finidat_file_path+'/'+finidat_file_name 
+                    #if ('ad_spinup' in self.dependcase): 
+                    #        os.system('python adjust_restart.py --rundir '+finidat_file_path+' --casename '+ \
+                    #            self.dependcase)
+                    #os.system('cp '+finidat_file_orig+' '+finidat_file_new)
+                    myoutput.write(" finidat = '"+finidat_file_new+"'\n")
+                    #Make any requested restart modifications
+                    for key in self.case_options.keys():
+                        if ('restart_' in key):
+                            var   = key[8:]
+                            value = self.case_options[key]
+                            ncval = self.getncvar(finidat_file_new, var)
+                            if ('*' in value):
+                                value = value*ncval
+                            if ('+' in value):
+                                value = value+ncval
+                            self.putncvar(finidat_file_new, var, value)
+                elif ('logfile =' in s):
+                    #Get the current date and time
+                    now = datetime.datetime.now()
+                    #Format the date and time in %y%m%d-%H%M%S format
+                    date_string = now.strftime("%y%m%d-%H%M%S")
+                    myoutput.write(s.replace('`date +%y%m%d-%H%M%S`',date_string))
+                else:
+                    myoutput.write(s.replace(orig_dir,ens_dir))
+            myoutput.close()
+            myinput.close()
+            os.system(' mv '+ens_dir+'/'+f+'.tmp '+ens_dir+'/'+f)
+    
+    # loop through all parameters of interest (PoI) and set them in the files
+    CNP_parms = ['ks_sorption', 'r_desorp', 'r_weather', 'r_adsorp', 'k_s1_biochem', 'smax', 'k_s3_biochem', \
              'r_occlude', 'k_s4_biochem', 'k_s2_biochem']
 
-  fates_seed_zeroed=[False,False]
-  pnum=0
-  parm_values = self.samples[:,ens_num-1]
-  parm_indices = self.ensemble_pfts
-  # loop through all parameters and set them in the files
-  for p in self.ensemble_parms:
-    # ...
-    if ('INI' in p):
-      if ('BGC' in self.casename):
-         scalevars = ['soil3c_vr','soil3n_vr','soil3p_vr']
-      else:
-         scalevars = ['soil4c_vr','soil4n_vr','soil4p_vr']
-      sumvars = ['totsomc','totsomp','totcolc','totcoln','totcolp']
-      for v in scalevars:
-         myvar = self.getncvar(finidat_file_new, v)
-         myvar = parm_values[pnum] * myvar
-         ierr = self.putncvar(finidat_file_new, v, myvar)
-    #...
-    elif (p == 'lai'):
-      myfile = surffile
-      param = self.getncvar(myfile, 'MONTHLY_LAI')
-      param[:,:,:,:] = parm_values[pnum]
-      ierr = self.putncvar(myfile, 'MONTHLY_LAI', param)
-    # ...
-    elif (p != 'co2'):
-      if (p in CNP_parms):
-         myfile= CNPfile
-      elif ('fates' in p):
-         myfile = fates_paramfile
-      else:
-         myfile = pftfile
-      param = self.getncvar(myfile,p)
-      if (('fates_prt' in p and 'stoich' in p) or ('fates_turnover' in p and 'retrans' in p)):
-        #this is a 2D parameter.
-         param[parm_indices[pnum] % 12 , parm_indices[pnum] / 12] = parm_values[pnum]
-         param[parm_indices[pnum] % 12 , parm_indices[pnum] / 12] = parm_values[pnum]
-      elif ('fates_hydr_p50_node' in p or 'fates_hydr_avuln_node' in p or 'fates_hydr_kmax_node' in p or \
-            'fates_hydr_pitlp_node' in p or 'fates_hydr_thetas_node' in p):
-         param[parm_indices[pnum] / 12 , parm_indices[pnum] % 12] = parm_values[pnum]
-         param[parm_indices[pnum] / 12 , parm_indices[pnum] % 12] = parm_values[pnum]
-      elif ('fates_leaf_long' in p or 'fates_leaf_vcmax25top' in p):
-         param[0,parm_indices[pnum]] = parm_values[pnum]
-      #elif (p == 'fates_seed_alloc'):
-      #    if (not fates_seed_zeroed[0]):
-      #       param[:]=0.
-      #       fates_seed_zeroed[0]=True
-      #    param[parm_indices[pnum]] = parm_values[pnum]
-      #elif (p == 'fates_seed_alloc_mature'):
-      #    if (not fates_seed_zeroed[1]):
-      #       param[:]=0.
-      #       fates_seed_zeroed[1]=True
-      #    param[parm_indices[pnum]] = parm_values[pnum]             
-      elif (p == 'dayl_scaling' or p == 'vcmaxse'):
-        os.system('ncap2 -O -s "'+p+' = flnr" '+myfile+' '+myfile)
-        print('Creting netcdf variable for '+p)
-        param = self.getncvar(myfile,'flnr')
-        param[:] = parm_values[pnum]
-      elif (p == 'psi50'):
-        param[:,parm_indices[pnum]] = parm_values[pnum]
-      elif (parm_indices[pnum] > 0):
-         param[parm_indices[pnum]] = parm_values[pnum]
-      elif (parm_indices[pnum] == 0):
-         try:
-           param[:] = parm_values[pnum]
-         except:
-           param = parm_values[pnum]
-      ierr = self.putncvar(myfile, p, param, addvar=True)
-      #if ('fr_flig' in p):
-      #   param=self.getncvar(myfile, 'fr_fcel')
-      #   param[parm_indices[pnum]]=1.0-parm_values[pnum]-parm_values[pnum-1]
-      #   ierr = self.putncvar(myfile, 'fr_fcel', param)
-    pnum = pnum+1
-
-  #ensure FATES seed allocation paramters sum to one
-  #if (fates_seed_zeroed[0]):
-  #  param = self.getncvar(myfile,'fates_seed_alloc')
-  #  param2 = self.getncvar(myfile,'fates_seed_alloc_mature')
-  #  for i in range(0,12):
-  #    if (param[i] + param2[i] > 1.0):
-  #      sumparam= param[i]+param2[i]
-  #      param[i]  = param[i]/sumparam
-  #      param2[i] = param2[i]/sumparam
-  #  ierr = self.putncvar(myfile, 'fates_seed_alloc', param)      
-  #  ierr = self.putncvar(myfile, 'fates_seed_alloc_mature', param2)
-
-
-
-### END ###
+    fates_seed_zeroed=[False,False]
+    pnum=0
+    parm_values = self.samples[:,ens_num-1]
+    parm_indices = self.ensemble_pfts
+    for p in self.ensemble_parms:
+        # ...
+        if ('INI' in p):
+            if ('BGC' in self.casename):
+                scalevars = ['soil3c_vr','soil3n_vr','soil3p_vr']
+            else:
+                scalevars = ['soil4c_vr','soil4n_vr','soil4p_vr']
+            sumvars = ['totsomc','totsomp','totcolc','totcoln','totcolp']
+            for v in scalevars:
+                myvar = self.getncvar(finidat_file_new, v)
+                myvar = parm_values[pnum] * myvar
+                ierr = self.putncvar(finidat_file_new, v, myvar)
+        # parameters in surffile 
+        elif (p == 'lai'):
+            myfile = surffile
+            param = self.getncvar(myfile, 'MONTHLY_LAI')
+            param[:,:,:,:] = parm_values[pnum]
+            ierr = self.putncvar(myfile, 'MONTHLY_LAI', param)
+        # parameters in the parameter or CNP_parms file 
+        elif (p != 'co2'):
+            if (p in CNP_parms):
+                myfile= CNPfile
+            elif ('fates' in p):
+                myfile = fates_paramfile
+            else:
+                myfile = pftfile
+            # get the parameter variable from the netCDF file
+            param = self.getncvar(myfile,p)
+            if (('fates_prt' in p and 'stoich' in p) or ('fates_turnover' in p and 'retrans' in p)):
+                #this is a 2D parameter.
+                param[parm_indices[pnum] % 12 , parm_indices[pnum] / 12] = parm_values[pnum]
+                param[parm_indices[pnum] % 12 , parm_indices[pnum] / 12] = parm_values[pnum]
+            elif ('fates_hydr_p50_node' in p or 'fates_hydr_avuln_node' in p or 'fates_hydr_kmax_node' in p or \
+                    'fates_hydr_pitlp_node' in p or 'fates_hydr_thetas_node' in p):
+                param[parm_indices[pnum] / 12 , parm_indices[pnum] % 12] = parm_values[pnum]
+                param[parm_indices[pnum] / 12 , parm_indices[pnum] % 12] = parm_values[pnum]
+            elif ('fates_leaf_long' in p or 'fates_leaf_vcmax25top' in p):
+                param[0,parm_indices[pnum]] = parm_values[pnum]
+            #elif (p == 'fates_seed_alloc'):
+            #    if (not fates_seed_zeroed[0]):
+            #       param[:]=0.
+            #       fates_seed_zeroed[0]=True
+            #    param[parm_indices[pnum]] = parm_values[pnum]
+            #elif (p == 'fates_seed_alloc_mature'):
+            #    if (not fates_seed_zeroed[1]):
+            #       param[:]=0.
+            #       fates_seed_zeroed[1]=True
+            #    param[parm_indices[pnum]] = parm_values[pnum]             
+            elif (p == 'dayl_scaling' or p == 'vcmaxse'):
+                os.system('ncap2 -O -s "'+p+' = flnr" '+myfile+' '+myfile)
+                print('Creting netcdf variable for '+p)
+                param = self.getncvar(myfile,'flnr')
+                param[:] = parm_values[pnum]
+            elif (p == 'psi50'):
+                param[:,parm_indices[pnum]] = parm_values[pnum]
+            elif (parm_indices[pnum] > 0):
+                param[parm_indices[pnum]] = parm_values[pnum]
+            elif (parm_indices[pnum] == 0):
+                try:
+                    param[:] = parm_values[pnum]
+                except:
+                    param = parm_values[pnum]
+            # put the modified parameter back into the netCDF file
+            ierr = self.putncvar(myfile, p, param, addvar=True)
+            
+            # ensure some TAM parameters sum to one
+            # this assumes _flab followed by _fcel
+            if (p == 'frt_fcel'):
+                param=self.getncvar(myfile, 'frt_flig')
+                param[parm_indices[pnum]]=1.0-parm_values[pnum]-parm_values[pnum-1]
+                ierr = self.putncvar(myfile, 'frt_flig', param)
+            if (p == 'fra_fcel'):
+                param=self.getncvar(myfile, 'fra_flig')
+                param[parm_indices[pnum]]=1.0-parm_values[pnum]-parm_values[pnum-1]
+                ierr = self.putncvar(myfile, 'fra_flig', param)
+            if (p == 'frm_fcel'):
+                param=self.getncvar(myfile, 'frm_flig')
+                param[parm_indices[pnum]]=1.0-parm_values[pnum]-parm_values[pnum-1]
+                ierr = self.putncvar(myfile, 'frm_flig', param)
+        pnum = pnum+1
+  
+    #ensure FATES seed allocation paramters sum to one
+    #if (fates_seed_zeroed[0]):
+    #  param = self.getncvar(myfile,'fates_seed_alloc')
+    #  param2 = self.getncvar(myfile,'fates_seed_alloc_mature')
+    #  for i in range(0,12):
+    #    if (param[i] + param2[i] > 1.0):
+    #      sumparam= param[i]+param2[i]
+    #      param[i]  = param[i]/sumparam
+    #      param2[i] = param2[i]/sumparam
+    #  ierr = self.putncvar(myfile, 'fates_seed_alloc', param)      
+    #  ierr = self.putncvar(myfile, 'fates_seed_alloc_mature', param2)
