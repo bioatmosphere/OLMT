@@ -219,7 +219,7 @@ def ensemble_copy(self, ens_num):
                 if ('fates_paramfile' in s):
                     paramfile_orig = ((s.split()[2]).strip("'"))
                     if (paramfile_orig[0:2] == './'):
-                    paramfile_orig = orig_dir+'/'+paramfile_orig[2:]
+                        paramfile_orig = orig_dir+'/'+paramfile_orig[2:]
                     paramfile_new  = ens_dir+'/fates_params_'+gst[1:]+'.nc'
                     os.system('cp '+paramfile_orig+' '+paramfile_new)
                     os.system('nccopy -3 '+paramfile_new+' '+paramfile_new+'_tmp')
@@ -229,7 +229,7 @@ def ensemble_copy(self, ens_num):
                 elif ('paramfile' in s):
                     paramfile_orig = ((s.split()[2]).strip("'"))
                     if (paramfile_orig[0:2] == './'):
-                    paramfile_orig = orig_dir+'/'+paramfile_orig[2:]
+                        paramfile_orig = orig_dir+'/'+paramfile_orig[2:]
                     paramfile_new  = ens_dir+'/clm_params_'+gst[1:]+'.nc'
                     os.system('cp '+paramfile_orig+' '+paramfile_new)
                     os.system('nccopy -3 '+paramfile_new+' '+paramfile_new+'_tmp')
@@ -241,7 +241,7 @@ def ensemble_copy(self, ens_num):
                 elif ('fsoilordercon' in s):
                     CNPfile_orig = ((s.split()[2]).strip("'"))
                     if (CNPfile_orig[0:2] == './'):
-                    CNPfile_orig  = orig_dir+'/'+CNPfile_orig[2:]
+                        CNPfile_orig  = orig_dir+'/'+CNPfile_orig[2:]
                     CNPfile_new  = ens_dir+'/CNP_parameters_'+gst[1:]+'.nc'
                     os.system('cp '+CNPfile_orig+' '+CNPfile_new)
                     os.system('nccopy -3 '+CNPfile_new+' '+CNPfile_new+'_tmp')
@@ -251,7 +251,7 @@ def ensemble_copy(self, ens_num):
                 elif ('fsurdat =' in s):
                     surffile_orig = ((s.split()[2]).strip("'"))
                     if (surffile_orig[0:2] == './'):
-                    surffile_orig = orig_dir+'/'+surffile_orig[2:]
+                        surffile_orig = orig_dir+'/'+surffile_orig[2:]
                     surffile_new = ens_dir+'/surfdata_'+gst[1:]+'.nc'
                     os.system('cp '+surffile_orig+' '+surffile_new)
                     os.system('nccopy -3 '+surffile_new+' '+surffile_new+'_tmp')
