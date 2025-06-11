@@ -20,7 +20,8 @@ def GSA(self, myvars, n_saltelli=8192):
     myvars : list
         List of variable names for which to perform GSA.
     n_saltelli : int
-        Number of Saltelli samples to generate. Default is 8192.
+        Number of Saltelli samples to generate. Default is 8192. NOTE:
+        The Saltelli sampler generates n_saltelli * (2*N + 2) samples.
     """
 
     #Get parameter bounds
@@ -42,17 +43,19 @@ def GSA(self, myvars, n_saltelli=8192):
     surrogate_output = self.run_surrogate(psamples, myvars)
 
     #Run GSA
-    self.sens_main={}
-    self.sens_tot={}
+    self.sens_main = {}
+    self.sens_tot  = {}
+    self.sens_2nd  = {}  # Initialize 2nd order sensitivity index dictionary
     for v in myvars:
-      nvar = surrogate_output[v].shape[1]
+      nvar = surrogate_output[v].shape[1] # annual, monthly, or daily output
       self.sens_main[v] = np.zeros([self.nparms_ensemble,nvar],float)
       self.sens_tot[v]  = np.zeros([self.nparms_ensemble,nvar],float)
+      self.sens_2nd[v]  = np.zeros([self.nparms_ensemble,self.nparms_ensemble,nvar],float)  # Initialize 2nd order sensitivity index array
       for i in range(0,nvar):
         Si = sobol.analyze(problem, surrogate_output[v][:,i])
-        self.sens_main[v][:,i]=Si['S1'] #1st order sensitivity index
-        self.sens_tot[v][:,i]=Si['ST']  #total sensitivity index
-
+        self.sens_main[v][:,i]  = Si['S1']  # 1st order sensitivity index
+        self.sens_tot[v][:,i]   = Si['ST']  # total sensitivity index
+        self.sens_2nd[v][:,:,i] = Si['S2']  # 2nd order sensitivity index is Si['S2']
     
 def plot_GSA(self, myvars):
     """Plot the results of GSA for the specified variables.
