@@ -11,11 +11,15 @@ The Offline Land Model Testbed (OLMT) is a Python framework for running and mana
 Since this is a pure Python scientific computing project, there are no traditional build/test commands. Development workflow:
 
 ```bash
+# Setup conda environment (choose appropriate one for your machine)
+conda env create -f conda_envs/OLMT_baseline.yml
+conda activate OLMT_baseline
+
 # Run a simulation using existing run scripts
 cd runscripts/
 python run_TAM.py  # or other run_*.py scripts
 
-# Run ensemble simulations  
+# Run ensemble simulations (requires SLURM environment)
 python manage_ensemble.py
 
 # Launch experimental GUI
@@ -24,6 +28,12 @@ python GUI_experimental.py
 # Run post-processing/analysis
 python plotcase.py
 python compare_cases.py
+
+# Modify NetCDF files
+python modify_netcdf.py
+
+# Adjust restart files
+python adjust_restart.py
 ```
 
 ## Core Architecture
@@ -86,6 +96,14 @@ Auto-detects HPC environments via `get_machine_info()`:
 ### Key Environment Variables
 - `$HOME/models/E3SM` - Default E3SM model source code location
 - Cases written to machine-specific directories (auto-detected)
+- `SLURM_JOB_NODELIST` - Used by manage_ensemble.py for parallel execution
+
+## Conda Environment Management
+
+Multiple conda environment files are available for different machines:
+- `conda_envs/OLMT_baseline.yml` - General purpose environment
+- `conda_envs/OLMT_chrysalis.yml` - Chrysalis HPC system
+- `conda_envs/OLMT_pm.yml` - Perlmutter HPC system
 
 ## Important Notes
 
@@ -95,3 +113,5 @@ Auto-detects HPC environments via `get_machine_info()`:
 - Supports multiple model configurations: ELM, FATES, various compsets
 - Uses SLURM for HPC job submission and dependency management
 - Ensemble simulations create many parallel run directories managed by MPI
+- Case objects are serialized as pickle files in `pklfiles/` directory
+- Modified source code can be placed in `srcmods*/` directories
