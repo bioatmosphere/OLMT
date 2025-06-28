@@ -7,23 +7,14 @@ import model_ELM
 from optparse import OptionParser
 
 
-parser = OptionParser()
-
-
-parser.add_option("--case", dest="case", default="", \
-                  help="Case name")
-parser.add_option("--postproc_only", dest="postproc_only", default=False, \
-                  action="store_true")
-parser.add_option("--UQ_only", dest="UQ_only", default=False, \
-                  action="store_true")
-(options, args) = parser.parse_args()
-
-#Load case object
-myfile=open('pklfiles/'+options.case+'.pkl','rb')
-mycase=pickle.load(myfile)
-
-#get the node file and parse
 def get_nodelist():
+  """Get the list of nodes from the SLURM job node list.
+  Returns
+  -------
+  mynodes : list
+      List of nodes in the job.
+  """
+
   mynodes=[]
   nodelist=os.environ['SLURM_JOB_NODELIST'].split('xxx')
   print(nodelist)
@@ -73,7 +64,24 @@ def check_run_success(n):
     return success
 
 def active_processes(processes,process_jobnum,process_hang):
-    """Returns the number of processes that are still running."""
+    """Returns the number of processes that are still running.
+    
+    
+    Parameters
+    ----------
+    processes : list
+        List of processes that are currently running.
+    process_jobnum : list
+        List of job numbers for the processes.
+    process_hang : list
+        List of hang counts for the processes.
+
+    Returns
+    -------
+    pactive : list
+        List of active processes (1 if running, 0 if not).
+    """
+
     pactive=[]
     n=0
     for process in processes:
@@ -99,7 +107,18 @@ def active_processes(processes,process_jobnum,process_hang):
     return pactive
 
 def postprocess_ensemble(n):
-  #Postprocess
+  """Postprocess ensemble member outputs.
+
+  Parameters
+  ----------
+  n : int
+      The ensemble member number to postprocess.
+  Returns
+  -------
+  ierr : int
+      Error code (0 for success, 1 for failure).
+  """
+
   if (mycase.postproc_vars != []):
       for v in mycase.postproc_vars:
         hnum=1
@@ -120,9 +139,26 @@ def postprocess_ensemble(n):
                   endyear=mycase.postproc_endyear,index=p,hnum=hnum, annualmean=True)
   return 0
 
-workdir = os.getcwd()
 
-if (not options.UQ_only):
+parser = OptionParser()
+
+parser.add_option("--case", dest="case", default="", \
+                  help="Case name")
+parser.add_option("--postproc_only", dest="postproc_only", default=False, \
+                  action="store_true")
+parser.add_option("--UQ_only", dest="UQ_only", default=False, \
+                  action="store_true")
+parser.add_option("--MCMC_only", dest="MCMC_only", default=False, \
+                  action="store_true", help="Only run MCMC parameter estimation")
+(options, args) = parser.parse_args()
+
+#Load case object
+myfile=open('pklfiles/'+options.case+'.pkl','rb')
+mycase=pickle.load(myfile)
+
+#workdir = os.getcwd()
+
+if (not options.UQ_only and not options.MCMC_only):
   processes=[]
   process_jobnum=[]
   process_hang=[]    #Keep track of how long process has been hanging
@@ -167,7 +203,33 @@ if (not options.UQ_only):
 
 #UQ part of code
 
-if (mycase.postproc_vars != []):
+if options.MCMC_only:
+    #MCMC only mode - skip ensemble runs and other UQ
+    print("Running MCMC-only mode")
+    if (mycase.obs and mycase.postproc_vars != []):
+        #Check if surrogate models already exist
+        missing_surrogates = [var for var in mycase.postproc_vars 
+                            if not hasattr(mycase, 'surrogate') or var not in mycase.surrogate 
+                            or not hasattr(mycase, 'pscaler') or var not in mycase.pscaler
+                            or not hasattr(mycase, 'yscaler') or var not in mycase.yscaler]
+        
+        if missing_surrogates:
+            print(f"Missing surrogate models for variables: {missing_surrogates}")
+            print("Training surrogate models...")
+            mycase.train_surrogate(mycase.postproc_vars)
+        else:
+            print("Using existing surrogate models")
+            
+        #Set intial values for parameters
+        parms=((np.array(mycase.ensemble_pmax)+np.array(mycase.ensemble_pmin))/2)
+        #Run MCMC for the specified variables
+        mycase.MCMC(parms, mycase.postproc_vars, 100000)
+        #Save output
+        mycase.create_pkl(outdir=mycase.OLMTdir+'/pklfiles/')
+        print("MCMC completed")
+    else:
+        print("Error: MCMC requires observations (mycase.obs) and postproc_vars to be defined")
+elif (mycase.postproc_vars != []):
     #Train surrogate models
     mycase.train_surrogate(mycase.postproc_vars)
 
@@ -183,6 +245,7 @@ if (mycase.postproc_vars != []):
     if (mycase.obs):
         parms=((np.array(mycase.ensemble_pmax)+np.array(mycase.ensemble_pmin))/2)
         #Run MCMC for the 2 varibles of interest
+        #NOTE: different MCMC algorithms can be used here
         mycase.MCMC(parms, mycase.postproc_vars, 100000)
 
         #Save postprocessed output
