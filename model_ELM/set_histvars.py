@@ -5,6 +5,26 @@ import numpy
 def set_histvars(self,spinup=-1,hist_mfilt=-9999,hist_nhtfrq=-9999):
     """Set history variables for ELM simulation.
 
+    vst = ''                    # Initialize empty string
+    for v in var_list_spinup:   # Loop through each variable name
+        vst = vst + "'" + v + "',"  # Add quoted variable with comma
+
+    Example Transformation:
+
+    Input (var_list_spinup):
+    ['PPOOL', 'EFLX_LH_TOT', 'NEE', 'GPP']
+
+    Output (vst):
+    "'PPOOL','EFLX_LH_TOT','NEE','GPP',"
+
+    Purpose
+
+    This format is required for ELM namelist variables like hist_fincl1, which specify
+    which variables to include in history files:
+
+    ! In ELM namelist
+    hist_fincl1 = 'PPOOL','EFLX_LH_TOT','NEE','GPP'
+
     Parameters
     ----------
     spinup : int
@@ -28,12 +48,13 @@ def set_histvars(self,spinup=-1,hist_mfilt=-9999,hist_nhtfrq=-9999):
                          'WIND','BTRAN','DAYL','T10','QBOT']
 
 
-     #if (self.C14):
+      #if (self.C14):
       #    var_list_spinup.append('C14_TOTSOMC')
       #    var_list_spinup.append('C14_TOTSOMC_1m')
       #    var_list_spinup.append('C14_TOTVEGC')
       if (not 'ECA' in self.compset and not 'ELMBC' in self.compset):
         var_list_spinup.extend(['SOIL4C'])
+      
       vst = ''
       for v in var_list_spinup:
         vst=vst+"'"+v+"',"
@@ -80,8 +101,7 @@ def set_histvars(self,spinup=-1,hist_mfilt=-9999,hist_nhtfrq=-9999):
                 self.customize_namelist(variable='hist_mfilt',value='1,365')
                 self.customize_namelist(variable='hist_nhtfrq',value='-8760,-24')
           self.customize_namelist(variable='hist_fincl2',value=vst_pp[:-1])
-    else:
-      #Transient simulation
+    else: #Transient simulation 
       if (self.postproc_vars == []):
         #Default to daily output for all variables if not postproc vars
         #if ('US-SPR' in self.site):

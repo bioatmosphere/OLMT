@@ -96,10 +96,12 @@ def train_surrogate(self,myvars):
 
     ypredict_train = yscaler.inverse_transform(grid.predict(ptrain_norm)) 
     ypredict_val   = yscaler.inverse_transform(grid.predict(pval_norm))
+    
     print('Correlations for training data: '+vname)
     for qoi in range(0,nqoi):
       print(qoi, np.corrcoef(ytrain.astype(float)[:,qoi], ypredict_train.astype(float)[:,qoi])[0,1]**2)
     print()
+
     print('Correlations for testing data: '+vname)
     UQ_output = './UQ_output/'+self.casename+'/surrogate'
     os.system('mkdir -p '+UQ_output)
@@ -113,27 +115,25 @@ def train_surrogate(self,myvars):
       plt.savefig(UQ_output+'/'+vname+'_surrogate'+str(qoi)+'.png', bbox_inches='tight')
       plt.close()
 
-def run_surrogate(self,parms,myvars):
-  """Run the surrogate model for the specified parameters and variables.
+def run_surrogate(self, parms, myvars):
+    """Run the surrogate model for the specified parameters and variables.
 
-  Parameters
-  ----------
-  parms : numpy.ndarray
-      The parameters to be used for the surrogate model.
-  myvars : list
-      List of variable names for which to run the surrogate model.
+    Parameters
+    ----------
+    parms : numpy.ndarray
+        The parameters to be used for the surrogate model.
+    myvars : list
+        List of variable names for which to run the surrogate model.
 
-  Returns
-  -------
-  surrogate_output : dict
-      A dictionary containing the surrogate model outputs for the specified variables.
-  """
+    Returns
+    -------
+    surrogate_output : dict
+        A dictionary containing the surrogate model outputs for the specified variables.
+    """
 
-  surrogate_output={}
-  for var in myvars:
-    parms_norm = self.pscaler[var].transform(parms)
-    surrogate_output[var] = self.yscaler[var].inverse_transform(self.surrogate[var].predict(parms_norm))
-    surrogate_output[var][:,self.qoi_bad[var]] = self.qoi_bad_meanval[var]
-  return surrogate_output
-
-
+    surrogate_output={}
+    for var in myvars:
+      parms_norm = self.pscaler[var].transform(parms)
+      surrogate_output[var] = self.yscaler[var].inverse_transform(self.surrogate[var].predict(parms_norm))
+      surrogate_output[var][:,self.qoi_bad[var]] = self.qoi_bad_meanval[var]
+    return surrogate_output

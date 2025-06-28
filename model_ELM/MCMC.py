@@ -8,6 +8,16 @@ import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 from optparse import OptionParser
 
+# Optional PyMC3 imports - only import if available
+try:
+    import pymc3 as pm
+    import theano.tensor as tt
+    import arviz as az
+    PYMC3_AVAILABLE = True
+except ImportError:
+    PYMC3_AVAILABLE = False
+    print("PyMC3 not available. Using custom MCMC implementation only.")
+
 def calc_posterior(self,parms,myvars):
     """Calculate the posterior (prior and log likelihood)
 
@@ -28,12 +38,11 @@ def calc_posterior(self,parms,myvars):
         The model output for the specified variables.
     """
 
-    line = 0
+    #line = 0
     #Uniform priors
     prior = 1.0
     for j in range(0,self.nparms_ensemble):
-        if (parms[j] < self.ensemble_pmin[j] or parms[j] > \
-                self.ensemble_pmax[j]):
+        if (parms[j] < self.ensemble_pmin[j] or parms[j] > self.ensemble_pmax[j]):
             prior = 0.0
     post = prior
     if (prior > 0.0):
@@ -57,7 +66,139 @@ def calc_posterior(self,parms,myvars):
     #print(post)
     return(post, output)
 
-def MCMC(self, parms, myvars, nevals, type='uniform', nburn=1000, burnsteps=10, default_output=[]):
+def MCMC_pymc3(self, parms, myvars, nevals, tune=1000, target_accept=0.9, sampler='NUTS'):
+    """
+    PyMC3-based MCMC implementation for parameter estimation.
+    
+    Parameters
+    ----------
+    parms : array-like
+        Initial parameter values (not used in PyMC3, but kept for compatibility).
+    myvars : list
+        List of variable names for which to perform MCMC sampling.
+    nevals : int
+        Number of samples to draw after tuning.
+    tune : int
+        Number of tuning/burn-in samples. Default is 1000.
+    target_accept : float
+        Target acceptance rate for NUTS sampler. Default is 0.9.
+    sampler : str
+        Sampler type ('NUTS', 'Metropolis', 'ADVI'). Default is 'NUTS'.
+    
+    Returns
+    -------
+    parms_best : array-like
+        Best parameter values (MAP estimate).
+    trace : InferenceData
+        ArviZ InferenceData object containing the MCMC trace.
+    """
+    
+    if not PYMC3_AVAILABLE:
+        raise ImportError("PyMC3 not available. Install with: pip install pymc3 theano arviz")
+    
+    UQ_output = './UQ_output/' + self.casename
+    os.makedirs(UQ_output + '/PyMC3_output', exist_ok=True)
+    
+    # Define custom log-likelihood function for PyMC3
+    @pm.as_op(itypes=[tt.dvector], otypes=[tt.dscalar])
+    def loglike_op(params_tt):
+        try:
+            params_np = np.array(params_tt)
+            post, _ = calc_posterior(self, params_np, myvars)
+            return post if post > -9999999 else -1e10
+        except:
+            return -1e10
+    
+    with pm.Model() as model:
+        # Define uniform priors for parameters
+        params = pm.Uniform('params', 
+                           lower=self.ensemble_pmin, 
+                           upper=self.ensemble_pmax, 
+                           shape=self.nparms_ensemble,
+                           testval=parms)
+        
+        # Define likelihood using custom log-likelihood function
+        likelihood = pm.DensityDist('likelihood', loglike_op, observed=params)
+        
+        # Choose sampler
+        if sampler == 'NUTS':
+            step = pm.NUTS(target_accept=target_accept)
+        elif sampler == 'Metropolis':
+            step = pm.Metropolis()
+        elif sampler == 'ADVI':
+            # Use ADVI for variational inference
+            approx = pm.fit(n=nevals + tune, method='advi')
+            trace = approx.sample(draws=nevals)
+            # Convert to InferenceData format
+            trace = az.from_pymc3(trace)
+            
+            # Get MAP estimate
+            parms_best = approx.bij.rmap(approx.mean.eval())['params']
+            
+            # Save results
+            self._save_pymc3_results(trace, parms_best, UQ_output, myvars)
+            return parms_best, trace
+        else:
+            raise ValueError("Sampler must be 'NUTS', 'Metropolis', or 'ADVI'")
+        
+        # Sample
+        print(f"Starting PyMC3 {sampler} sampling...")
+        trace = pm.sample(draws=nevals, tune=tune, step=step, 
+                         return_inferencedata=True, cores=1)
+    
+    # Extract best parameters (MAP estimate)
+    posterior_samples = trace.posterior['params'].values
+    log_likelihood = trace.log_likelihood['likelihood'].values
+    
+    # Find best parameters
+    best_idx = np.unravel_index(np.argmax(log_likelihood), log_likelihood.shape)
+    parms_best = posterior_samples[best_idx[0], best_idx[1], :]
+    
+    # Save results
+    self._save_pymc3_results(trace, parms_best, UQ_output, myvars)
+    
+    print(f"PyMC3 sampling completed. Results saved to {UQ_output}/PyMC3_output/")
+    return parms_best, trace
+
+def _save_pymc3_results(self, trace, parms_best, UQ_output, myvars):
+    """Save PyMC3 results in similar format to custom MCMC."""
+    
+    # Save best parameters
+    with open(UQ_output + '/PyMC3_output/parms_best.txt', 'w') as f:
+        for p, (pname, pft, pval) in enumerate(zip(self.ensemble_parms, self.ensemble_pfts, parms_best)):
+            f.write(f"{pname} {pft} {pval}\n")
+    
+    # Save trace summary
+    summary = az.summary(trace)
+    summary.to_csv(UQ_output + '/PyMC3_output/trace_summary.csv')
+    
+    # Create diagnostic plots
+    os.makedirs(UQ_output + '/PyMC3_output/plots', exist_ok=True)
+    
+    # Trace plots
+    az.plot_trace(trace, var_names=['params'])
+    plt.savefig(UQ_output + '/PyMC3_output/plots/trace_plot.pdf')
+    plt.close()
+    
+    # Posterior plots
+    az.plot_posterior(trace, var_names=['params'])
+    plt.savefig(UQ_output + '/PyMC3_output/plots/posterior_plot.pdf')
+    plt.close()
+    
+    # Rank plots for diagnostics
+    az.plot_rank(trace)
+    plt.savefig(UQ_output + '/PyMC3_output/plots/rank_plot.pdf')
+    plt.close()
+    
+    # Save raw samples
+    samples = trace.posterior['params'].values.reshape(-1, len(self.ensemble_parms))
+    np.savetxt(UQ_output + '/PyMC3_output/MCMC_chain.txt', samples)
+    
+    print(f"PyMC3 diagnostics saved to {UQ_output}/PyMC3_output/plots/")
+
+def MCMC(self, parms, myvars, nevals, *, 
+         mcmc_type='uniform', nburn=1000, burnsteps=10, 
+         default_output=None, sampler='custom', **kwargs):
     """
     Perform Markov Chain Monte Carlo (MCMC) to estimate the posterior distribution of parameters.
 
@@ -69,7 +210,7 @@ def MCMC(self, parms, myvars, nevals, type='uniform', nburn=1000, burnsteps=10, 
         List of variable names for which to perform MCMC sampling.
     nevals : int
         Number of evaluations for MCMC sampling.
-    type : str
+    mcmc_type : str
         Type of MCMC sampling to perform. Default is 'uniform'.
     nburn : int
         Number of burn-in steps for MCMC sampling. Default is 1000.
@@ -77,11 +218,44 @@ def MCMC(self, parms, myvars, nevals, type='uniform', nburn=1000, burnsteps=10, 
         Number of burn-in steps for MCMC sampling. Default is 10.
     default_output : list
         Default output values for comparison. Default is empty list.
+    sampler : str
+        MCMC implementation to use. Options:
+        - 'custom': Use custom Metropolis-Hastings implementation (default)
+        - 'pymc3': Use PyMC3 with NUTS sampler
+        - 'pymc3_metropolis': Use PyMC3 with Metropolis sampler
+        - 'pymc3_advi': Use PyMC3 with ADVI variational inference
+    **kwargs : dict
+        Additional arguments passed to PyMC3 sampler (e.g., tune, target_accept)
 
     Returns
     -------
     parms_best : array-like
         Best parameter values found during MCMC sampling.
+    trace : optional
+        For PyMC3 samplers, also returns the trace object.
+    """
+    
+    # Route to appropriate implementation
+    if sampler == 'custom':
+        return self._MCMC_custom(parms, myvars, nevals, mcmc_type, nburn, burnsteps, default_output)
+    elif sampler in ['pymc3', 'pymc3_nuts']:
+        tune = kwargs.get('tune', nburn * burnsteps)
+        target_accept = kwargs.get('target_accept', 0.9)
+        return MCMC_pymc3(self, parms, myvars, nevals, tune=tune, target_accept=target_accept, sampler='NUTS')
+    elif sampler == 'pymc3_metropolis':
+        tune = kwargs.get('tune', nburn * burnsteps)
+        return MCMC_pymc3(self, parms, myvars, nevals, tune=tune, sampler='Metropolis')
+    elif sampler == 'pymc3_advi':
+        tune = kwargs.get('tune', nburn * burnsteps)
+        return MCMC_pymc3(self, parms, myvars, nevals, tune=tune, sampler='ADVI')
+    else:
+        raise ValueError(f"Unknown sampler: {sampler}. Choose from 'custom', 'pymc3', 'pymc3_metropolis', 'pymc3_advi'")
+
+def _MCMC_custom(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps=10, default_output=None):
+    """
+    Original custom Metropolis-Hastings MCMC implementation.
+    
+    (Documentation same as main MCMC function)
     """
     
     UQ_output='./UQ_output/'+self.casename
@@ -124,8 +298,7 @@ def MCMC(self, parms, myvars, nevals, type='uniform', nburn=1000, burnsteps=10, 
     scalefac = 1.0
 
     for i in range(0,nevals):
-
-         #update proposal step size
+        #update proposal step size
         if (i > 0 and (i % nburn) == 0 and i < burnsteps*nburn):
             acc_ratio = float(accepted_step) / nburn
             mycov_step = np.cov(chain_prop[0:nparms,accepted_tot- \
@@ -179,7 +352,7 @@ def MCMC(self, parms, myvars, nevals, type='uniform', nburn=1000, burnsteps=10, 
    
         #------- run the model and calculate log likelihood -------------------
         thisoutput={}
-        post, thisoutput = calc_posterior(self,parms,myvars)
+        post, thisoutput = calc_posterior(self, parms, myvars)
         #determine whether proposal step is accepted
         if ( (post - post_last < np.log(random.uniform(0,1)))):
             #if not accepted, go back to previous step

@@ -35,6 +35,59 @@ def do_timeaverage(values, nav):
 def postprocess(self, var, index=0, gindex=0, startyear=-1, endyear=9999, hnum=0, \
         dailytomonthly=False, annualmean=False,  meanseasonalcycle=False, \
         xindex=0,yindex=0, ens_num=0, plot=False):
+    """
+    Postprocess the specified variable from the ELM output files.
+    This function reads the ELM output files, extracts the specified variable,
+    and performs any requested averaging or filtering. The results are stored
+    in the output dictionary.
+
+    Parameters
+    ----------
+    var : str
+        The variable to postprocess. This should be the name of the variable
+        as it appears in the ELM output files.
+    index : int, optional
+        The index of the variable to extract. This is used for PFT-level
+        variables. The default is 0.
+    gindex : int, optional
+        The index of the variable to extract for unstructured grid variables.
+        The default is 0.
+    startyear : int, optional
+        The starting year for the data to extract. The default is -1, which
+        means the first year in the output files.
+    endyear : int, optional
+        The ending year for the data to extract. The default is 9999, which
+        means the last year in the output files.
+    hnum : int, optional
+        The history number for the variable to extract. The default is 0,
+        which means the first history file.
+    dailytomonthly : bool, optional
+        If True, the daily data will be averaged to monthly data. The
+        default is False.
+    annualmean : bool, optional
+        If True, the data will be averaged to annual data. The default is
+        False.
+    meanseasonalcycle : bool, optional
+        If True, the data will be averaged to a mean seasonal cycle. The
+        default is False.
+    xindex : int, optional
+        The x index for the variable to extract. This is used for
+        unstructured grid variables. The default is 0.
+    yindex : int, optional
+        The y index for the variable to extract. This is used for
+        unstructured grid variables. The default is 0.
+    ens_num : int, optional
+        The ensemble number for the variable to extract. This is used for
+        ensemble simulations. The default is 0, which means the first
+        ensemble member.
+    plot : bool, optional
+        If True, the data will be plotted. The default is False.
+
+    Returns
+    -------
+    None
+    """
+
     if (ens_num > 0):
         gst = str(100000+ens_num)[1:]
         rundir = self.rundir_UQ+'/g'+gst
@@ -109,9 +162,12 @@ def postprocess(self, var, index=0, gindex=0, startyear=-1, endyear=9999, hnum=0
         self.output[var_out][:,ens_num-1] = values_out
     else:
         self.output[var_out]=values_out
+    
     self.output['taxis'] = np.zeros([len(values_out)],float)
     for t in range(0,len(values_out)):
         self.output['taxis'][t] = startyear+t/nperyear_out
+    
+    #
     if (plot):
         plt.plot(self.output['taxis'],self.output[var_out],'k')
         plt.legend([var_out])

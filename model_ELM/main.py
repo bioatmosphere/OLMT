@@ -261,7 +261,9 @@ class ELMcase():
     return value[:-1]   #avoid new line character
 
   def set_param_file(self):
-    #set the ELM parameter file
+    """set the ELM parameter file
+    """
+
     if (self.paramfile == ''):
       #Get parameter filename from case directory
       self.paramfile = self.get_namelist_variable('paramfile')
@@ -278,6 +280,9 @@ class ELMcase():
     os.system('cp '+self.CNPparm_file+' '+self.OLMTdir+'/temp/CNP_parameters.nc')
 
   def set_fates_param_file(self):
+    """set the FATES parameter file
+    """
+    
     if (self.fates_paramfile == ''):
         self.fates_paramfile = self.get_namelist_variable('fates_paramfile')
     print('FATES parameter file : '+self.fates_paramfile)

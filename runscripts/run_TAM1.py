@@ -26,7 +26,7 @@ mettype = 'gswp3'               #Site or reanalysis product to use (site, gswp3,
 case_suffix = ''               #Identifier for cases (leave blank if none)
 
 if (runtype == 'site'):
-    sites = ['US-Ho1']               #Site name, list of site names, or 'all' for all sites in site group
+    sites = ['US-MOz']               #Site name, list of site names, or 'all' for all sites in site group
     sitegroup = 'TAM'       #Sites defined in <inputdata>/lnd/clm2/PTCLM/<sitegroup>_sitedata.txt
     numproc = 1
 else:
@@ -70,13 +70,13 @@ case_options['paramfile'] = '/ccsopen/home/6lw/models/OLMT/inputdata/tam_params.
 
 #--------------------ensemble options------------------------------------------------
 
-parm_list      = 'inputdata/parm_list_tam'  #Set parameter list (leave blank for no ensemble)
-nsamples       =  256    #number of samples to run
-np_ensemble    =  256    #number of ensemble numbers to run in parallel (MUST be <= nsamples)
+parm_list      = 'inputdata/PTTAM/us_moz_parm_list_tam'  #Set parameter list (leave blank for no ensemble)
+nsamples       =  1000    #number of samples to run
+np_ensemble    =  384    #number of ensemble numbers to run in parallel (MUST be <= nsamples)
 ensemble_file  = ''     #File containing samples (if blank, OLMT will generate one)
-postproc_vars  = ['GPP','FROOTTC']  #Variables to automatically post-process
-postproc_startyear = 1860
-postproc_endyear   = 1862
+postproc_vars  = ['GPP','ER','NPP','NEE','BGNPP','NEP','NBP','TLAI','FPSN','SOILC','TOTECOSYSC','QFLX_EVAP_TOT','EFLX_LH_TOT','FSH','FROOTTC','FROOTAC','FROOTMC']  #Variables to automatically post-processpostproc_startyear = 1860
+postproc_startyear = 2010
+postproc_endyear   = 2012
 postproc_freq      = 'annual'   #Can be daily, monthly, annual, hourly(not tested)
 
 #Observations to use in calibration (must match a model output variable in name/units, and the 
