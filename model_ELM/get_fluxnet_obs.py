@@ -1,8 +1,7 @@
 import numpy as np
 import os
-from netCDF4 import Dataset
 
-def get_fluxnet_obs(self, site='US-UMB', tstep='monthly', ystart=-1, yend=9999, fluxnet_var='GPP', myobsdir=''):
+def get_fluxnet_obs(self, site='US-UMB', tstep='monthly', ystart=-1, yend=9999, fluxnet_var='GPP', myobsdir='/observations/fluxnet'):
   """
   Load and process FLUXNET observational data for model validation.
   
@@ -15,7 +14,7 @@ def get_fluxnet_obs(self, site='US-UMB', tstep='monthly', ystart=-1, yend=9999, 
   site : str, optional
       FLUXNET site code (e.g., 'US-UMB'). Default is 'US-UMB'.
   tstep : str, optional
-      Time step for data ('monthly' or 'daily'). Default is 'monthly'.
+      Time step for data ('monthly', 'daily', or 'yearly'). Default is 'monthly'.
   ystart : int, optional
       Start year for data extraction. If -1, auto-detect from file. Default is -1.
   yend : int, optional
@@ -23,7 +22,7 @@ def get_fluxnet_obs(self, site='US-UMB', tstep='monthly', ystart=-1, yend=9999, 
   fluxnet_var : str, optional
       ELM variable name to extract (e.g., 'GPP', 'NEE', 'FPSN'). Default is 'GPP'.
   myobsdir : str, optional
-      Directory path containing FLUXNET observation files. Default is ''.
+      Directory path containing FLUXNET observation files. Default is '/observations/fluxnet'.
       
   Returns
   -------
@@ -35,7 +34,7 @@ def get_fluxnet_obs(self, site='US-UMB', tstep='monthly', ystart=-1, yend=9999, 
   - Only data with quality control flags > 0.8 (80%) are retained
   - Missing or low-quality data are marked with -9999
   - Variable mapping handles conversion between ELM and FLUXNET naming conventions
-  - Supports both monthly and daily time steps
+  - Supports monthly, daily, and yearly time steps
   """
   
   # Remove unused variables and fix spacing
@@ -68,6 +67,8 @@ def get_fluxnet_obs(self, site='US-UMB', tstep='monthly', ystart=-1, yend=9999, 
       nstep = 12
   elif tstep == 'daily':
       nstep = 366
+  elif tstep == 'yearly':
+      nstep = 1
 
   for v in range(0, len(vars_elm)):
       if fluxnet_var == vars_elm[v]:
