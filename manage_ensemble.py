@@ -150,6 +150,8 @@ parser.add_option("--UQ_only", dest="UQ_only", default=False, \
                   action="store_true")
 parser.add_option("--MCMC_only", dest="MCMC_only", default=False, \
                   action="store_true", help="Only run MCMC parameter estimation")
+parser.add_option("--obs_dir", dest="obs_dir", default="", \
+                  help="Directory containing FLUXNET observation files (for MCMC-only mode)")
 (options, args) = parser.parse_args()
 
 #Load case object
@@ -204,31 +206,75 @@ if (not options.UQ_only and not options.MCMC_only):
 #UQ part of code
 
 if options.MCMC_only:
-    #MCMC only mode - skip ensemble runs and other UQ
     print("Running MCMC-only mode")
-    if (mycase.obs and mycase.postproc_vars != []):
-        #Check if surrogate models already exist
-        missing_surrogates = [var for var in mycase.postproc_vars 
-                            if not hasattr(mycase, 'surrogate') or var not in mycase.surrogate 
-                            or not hasattr(mycase, 'pscaler') or var not in mycase.pscaler
-                            or not hasattr(mycase, 'yscaler') or var not in mycase.yscaler]
-        
-        if missing_surrogates:
-            print(f"Missing surrogate models for variables: {missing_surrogates}")
-            print("Training surrogate models...")
-            mycase.train_surrogate(mycase.postproc_vars)
-        else:
-            print("Using existing surrogate models")
+    
+    # Validate prerequisites
+    if not mycase.postproc_vars:
+        print("Error: No postproc_vars defined for MCMC analysis")
+        sys.exit(1)
+    
+    # Load observations if missing
+    if not mycase.obs:
+        # Determine observation directory
+        obs_dir = options.obs_dir or getattr(mycase, 'obs_dir', None)
+        if not obs_dir:
+            print("Error: No observations found and no observation directory specified")
+            print("Use --obs_dir <path> or ensure mycase.obs is populated")
+            sys.exit(1)
             
-        #Set intial values for parameters
-        parms=((np.array(mycase.ensemble_pmax)+np.array(mycase.ensemble_pmin))/2)
-        #Run MCMC for the specified variables
-        mycase.MCMC(parms, mycase.postproc_vars, 100000)
-        #Save output
-        mycase.create_pkl(outdir=mycase.OLMTdir+'/pklfiles/')
-        print("MCMC completed")
+        if not hasattr(mycase, 'site'):
+            print("Error: mycase.site not defined - required for FLUXNET observation loading")
+            sys.exit(1)
+            
+        print("Loading FLUXNET observations...")
+        fluxnet_variables = {'GPP', 'FPSN', 'NEE', 'ER', 'EFLX_LH_TOT', 'FSH'}
+        vars_to_load = [var for var in mycase.postproc_vars if var in fluxnet_variables]
+        
+        if not vars_to_load:
+            print(f"Error: No FLUXNET-compatible variables in {mycase.postproc_vars}")
+            sys.exit(1)
+            
+        loaded_count = 0
+        for var in vars_to_load:
+            try:
+                mycase.get_fluxnet_obs(site=mycase.site, fluxnet_var=var, myobsdir=obs_dir, 
+                                      tstep='monthly', ystart=-1, yend=9999)
+                loaded_count += 1
+                print(f"✓ Loaded {var}")
+            except Exception as e:
+                print(f"✗ Failed to load {var}: {e}")
+        
+        if loaded_count == 0:
+            print("Error: No observations could be loaded")
+            sys.exit(1)
+            
+        skipped = set(mycase.postproc_vars) - fluxnet_variables
+        if skipped:
+            print(f"Note: Skipped {skipped} (no FLUXNET equivalents)")
+    
+    # Check/train surrogate models
+    def has_complete_surrogate(var):
+        return (hasattr(mycase, 'surrogate') and var in mycase.surrogate and
+                hasattr(mycase, 'pscaler') and var in mycase.pscaler and
+                hasattr(mycase, 'yscaler') and var in mycase.yscaler)
+    
+    missing_surrogates = [var for var in mycase.postproc_vars if not has_complete_surrogate(var)]
+    
+    if missing_surrogates:
+        print(f"Training surrogate models for: {missing_surrogates}")
+        mycase.train_surrogate(mycase.postproc_vars)
     else:
-        print("Error: MCMC requires observations (mycase.obs) and postproc_vars to be defined")
+        print("Using existing surrogate models")
+    
+    # Run MCMC
+    print("Starting MCMC parameter estimation...")
+    parms = (np.array(mycase.ensemble_pmax) + np.array(mycase.ensemble_pmin)) / 2
+    mycase.MCMC(parms, mycase.postproc_vars, 100000)
+    
+    # Save results
+    mycase.create_pkl(outdir=mycase.OLMTdir+'/pklfiles/')
+    print("✓ MCMC completed successfully")
+    
 elif (mycase.postproc_vars != []):
     #Train surrogate models
     mycase.train_surrogate(mycase.postproc_vars)
