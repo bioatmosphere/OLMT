@@ -150,7 +150,7 @@ parser.add_option("--UQ_only", dest="UQ_only", default=False, \
                   action="store_true")
 parser.add_option("--MCMC_only", dest="MCMC_only", default=False, \
                   action="store_true", help="Only run MCMC parameter estimation")
-parser.add_option("--obs_dir", dest="obs_dir", default="", \
+parser.add_option("--obs_dir", dest="obs_dir", default="/observations/fluxnet", \
                   help="Directory containing FLUXNET observation files (for MCMC-only mode)")
 (options, args) = parser.parse_args()
 
