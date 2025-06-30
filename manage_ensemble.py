@@ -152,6 +152,8 @@ parser.add_option("--MCMC_only", dest="MCMC_only", default=False, \
                   action="store_true", help="Only run MCMC parameter estimation")
 parser.add_option("--obs_dir", dest="obs_dir", default="/observations/fluxnet", \
                   help="Directory containing FLUXNET observation files (for MCMC-only mode)")
+parser.add_option("--tstep", dest="tstep", default="monthly", \
+                  help="Time step for observation data ('monthly', 'daily', or 'yearly')")
 (options, args) = parser.parse_args()
 
 #Load case object
@@ -238,7 +240,7 @@ if options.MCMC_only:
         for var in vars_to_load:
             try:
                 mycase.get_fluxnet_obs(site=mycase.site, fluxnet_var=var, myobsdir=obs_dir, 
-                                      tstep='monthly', ystart=-1, yend=9999)
+                                      tstep=options.tstep, ystart=-1, yend=9999)
                 loaded_count += 1
                 print(f"✓ Loaded {var}")
             except Exception as e:
