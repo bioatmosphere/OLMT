@@ -196,7 +196,7 @@ def _save_pymc3_results(self, trace, parms_best, UQ_output, myvars):
     
     print(f"PyMC3 diagnostics saved to {UQ_output}/PyMC3_output/plots/")
 
-def MCMC(self, parms, myvars, nevals, *, 
+def MCMC_custom(self, parms, myvars, nevals, *, 
          mcmc_type='uniform', nburn=1000, burnsteps=10, 
          default_output=None, sampler='custom', **kwargs):
     """
@@ -237,7 +237,7 @@ def MCMC(self, parms, myvars, nevals, *,
     
     # Route to appropriate implementation
     if sampler == 'custom':
-        return self._MCMC_custom(parms, myvars, nevals, mcmc_type, nburn, burnsteps, default_output)
+        return self.MCMC(parms, myvars, nevals, mcmc_type, nburn, burnsteps, default_output)
     elif sampler in ['pymc3', 'pymc3_nuts']:
         tune = kwargs.get('tune', nburn * burnsteps)
         target_accept = kwargs.get('target_accept', 0.9)
@@ -251,7 +251,7 @@ def MCMC(self, parms, myvars, nevals, *,
     else:
         raise ValueError(f"Unknown sampler: {sampler}. Choose from 'custom', 'pymc3', 'pymc3_metropolis', 'pymc3_advi'")
 
-def _MCMC_custom(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps=10, default_output=None):
+def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps=10, default_output=None):
     """
     Original custom Metropolis-Hastings MCMC implementation.
     

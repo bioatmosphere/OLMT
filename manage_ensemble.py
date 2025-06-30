@@ -150,7 +150,7 @@ parser.add_option("--UQ_only", dest="UQ_only", default=False, \
                   action="store_true")
 parser.add_option("--MCMC_only", dest="MCMC_only", default=False, \
                   action="store_true", help="Only run MCMC parameter estimation")
-parser.add_option("--obs_dir", dest="obs_dir", default="/observations/fluxnet", \
+parser.add_option("--obs_dir", dest="obs_dir", default="observations/fluxnet", \
                   help="Directory containing FLUXNET observation files (for MCMC-only mode)")
 parser.add_option("--tstep", dest="tstep", default="monthly", \
                   help="Time step for observation data ('monthly', 'daily', or 'yearly')")
@@ -269,6 +269,7 @@ if options.MCMC_only:
         print("Using existing surrogate models")
     
     # Run MCMC
+    #NOTE: different MCMC algorithms can be used here
     print("Starting MCMC parameter estimation...")
     parms = (np.array(mycase.ensemble_pmax) + np.array(mycase.ensemble_pmin)) / 2
     mycase.MCMC(parms, mycase.postproc_vars, 100000)
