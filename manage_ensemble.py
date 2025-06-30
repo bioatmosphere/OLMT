@@ -272,7 +272,7 @@ if options.MCMC_only:
     #NOTE: different MCMC algorithms can be used here
     print("Starting MCMC parameter estimation...")
     parms = (np.array(mycase.ensemble_pmax) + np.array(mycase.ensemble_pmin)) / 2
-    mycase.MCMC(parms, mycase.postproc_vars, 100000)
+    mycase.MCMC(parms, vars_to_load, 100000)
     
     # Save results
     mycase.create_pkl(outdir=mycase.OLMTdir+'/pklfiles/')

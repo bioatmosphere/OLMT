@@ -123,5 +123,19 @@ def get_fluxnet_obs(self, site='US-UMB', tstep='monthly', ystart=-1, yend=9999, 
                               myobs_err[thisob] = -9999
                           thisob = thisob + 1
                   thisrow = thisrow + 1
-              self.obs[vars_elm[vnum]] = myobs
-              self.obs_err[vars_elm[vnum]] = myobs_err
+              # Check if postproc_startyear and postproc_endyear are defined for subsetting
+              if hasattr(self, 'postproc_startyear') and hasattr(self, 'postproc_endyear'):
+                  # Calculate subset indices based on postproc years
+                  postproc_start_idx = max(0, (self.postproc_startyear - ystart) * nstep)
+                  postproc_end_idx = min(len(myobs), (self.postproc_endyear - ystart + 1) * nstep)
+                  
+                  # Subset the arrays
+                  self.obs[vars_elm[vnum]] = myobs[postproc_start_idx:postproc_end_idx]
+                  self.obs_err[vars_elm[vnum]] = myobs_err[postproc_start_idx:postproc_end_idx]
+                  
+                  print(f"Subset observations from {self.postproc_startyear} to {self.postproc_endyear}")
+                  print(f"Using indices {postproc_start_idx}:{postproc_end_idx} from total length {len(myobs)}")
+              else:
+                  # Use full arrays if postproc years not defined
+                  self.obs[vars_elm[vnum]] = myobs
+                  self.obs_err[vars_elm[vnum]] = myobs_err
