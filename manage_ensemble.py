@@ -307,10 +307,55 @@ if options.MCMC_only:
         if skipped:
             print(f"Note: Skipped {skipped} (no FLUXNET equivalents)")
     else:
-        # If observations already exist, use all postproc_vars for MCMC
+        # If observations already exist, apply same validation logic
         print("Using existing observations")
-        valid_vars_for_mcmc = mycase.postproc_vars.copy()
+        print("\n=== Observation Quality Summary ===")
+        total_valid = 0
+        total_observations = 0
+        
+        for var in mycase.postproc_vars:
+            if hasattr(mycase, 'obs') and var in mycase.obs:
+                obs_data = np.array(mycase.obs[var])
+                valid_count = np.sum(obs_data != -9999)
+                total_count = len(obs_data)
+                valid_pct = (valid_count / total_count * 100) if total_count > 0 else 0
+                
+                total_valid += valid_count
+                total_observations += total_count
+                
+                print(f"{var}: {valid_count}/{total_count} valid observations ({valid_pct:.1f}%)")
+                
+                # Calculate expected number of observations in postproc period
+                expected_postproc_obs = total_count  # default to total
+                if hasattr(mycase, 'postproc_startyear') and hasattr(mycase, 'postproc_endyear'):
+                    postproc_years = mycase.postproc_endyear - mycase.postproc_startyear + 1
+                    if options.tstep == 'monthly':
+                        expected_postproc_obs = postproc_years * 12
+                    elif options.tstep == 'daily':
+                        expected_postproc_obs = postproc_years * 366
+                    elif options.tstep == 'yearly':
+                        expected_postproc_obs = postproc_years
+                
+                if valid_count == 0:
+                    print(f"  WARNING: No valid observations for {var} - SKIPPING from MCMC")
+                elif valid_count == expected_postproc_obs:
+                    valid_vars_for_mcmc.append(var)
+                    print(f"  ✓ Including {var} in MCMC (complete data: {valid_count}/{expected_postproc_obs})")
+                else:
+                    print(f"  WARNING: Incomplete observations for {var} ({valid_count}/{expected_postproc_obs}) - SKIPPING from MCMC")
+        
+        overall_pct = (total_valid / total_observations * 100) if total_observations > 0 else 0
+        print(f"\nOverall: {total_valid}/{total_observations} valid observations ({overall_pct:.1f}%)")
         print(f"Variables for MCMC: {valid_vars_for_mcmc}")
+        
+        if len(valid_vars_for_mcmc) == 0:
+            print("ERROR: No variables have sufficient valid observations for MCMC!")
+            print("This will cause MCMC to fail. Check observation files and time periods.")
+            sys.exit(1)
+        elif len(valid_vars_for_mcmc) < len(mycase.postproc_vars):
+            print(f"Note: Using {len(valid_vars_for_mcmc)}/{len(mycase.postproc_vars)} variables for MCMC")
+        
+        print("=====================================\n")
     
     # Check/train surrogate models
     def has_complete_surrogate(var):
