@@ -250,6 +250,45 @@ if options.MCMC_only:
             print("Error: No observations could be loaded")
             sys.exit(1)
             
+        # Check number of valid observations and filter variables
+        print("\n=== Observation Quality Summary ===")
+        total_valid = 0
+        total_observations = 0
+        valid_vars_for_mcmc = []
+        
+        for var in vars_to_load:
+            if hasattr(mycase, 'obs') and var in mycase.obs:
+                obs_data = np.array(mycase.obs[var])
+                valid_count = np.sum(obs_data != -9999)
+                total_count = len(obs_data)
+                valid_pct = (valid_count / total_count * 100) if total_count > 0 else 0
+                
+                total_valid += valid_count
+                total_observations += total_count
+                
+                print(f"{var}: {valid_count}/{total_count} valid observations ({valid_pct:.1f}%)")
+                
+                if valid_count == 0:
+                    print(f"  WARNING: No valid observations for {var} - SKIPPING from MCMC")
+                elif valid_count < 5:
+                    print(f"  WARNING: Very few observations for {var} (< 5) - SKIPPING from MCMC")
+                else:
+                    valid_vars_for_mcmc.append(var)
+                    print(f"  ✓ Including {var} in MCMC")
+        
+        overall_pct = (total_valid / total_observations * 100) if total_observations > 0 else 0
+        print(f"\nOverall: {total_valid}/{total_observations} valid observations ({overall_pct:.1f}%)")
+        print(f"Variables for MCMC: {valid_vars_for_mcmc}")
+        
+        if len(valid_vars_for_mcmc) == 0:
+            print("ERROR: No variables have sufficient valid observations for MCMC!")
+            print("This will cause MCMC to fail. Check observation files and time periods.")
+            sys.exit(1)
+        elif len(valid_vars_for_mcmc) < len(vars_to_load):
+            print(f"Note: Using {len(valid_vars_for_mcmc)}/{len(vars_to_load)} variables for MCMC")
+        
+        print("=====================================\n")
+            
         skipped = set(mycase.postproc_vars) - fluxnet_variables
         if skipped:
             print(f"Note: Skipped {skipped} (no FLUXNET equivalents)")
@@ -271,8 +310,9 @@ if options.MCMC_only:
     # Run MCMC
     #NOTE: different MCMC algorithms can be used here
     print("Starting MCMC parameter estimation...")
+    print(f"Using variables: {valid_vars_for_mcmc}")
     parms = (np.array(mycase.ensemble_pmax) + np.array(mycase.ensemble_pmin)) / 2
-    mycase.MCMC(parms, vars_to_load, 100000)
+    mycase.MCMC(parms, valid_vars_for_mcmc, 100000)
     
     # Save results
     mycase.create_pkl(outdir=mycase.OLMTdir+'/pklfiles/')
