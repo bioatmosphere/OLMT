@@ -210,6 +210,9 @@ if (not options.UQ_only and not options.MCMC_only):
 if options.MCMC_only:
     print("Running MCMC-only mode")
     
+    # Initialize variable list
+    valid_vars_for_mcmc = []
+    
     # Validate prerequisites
     if not mycase.postproc_vars:
         print("Error: No postproc_vars defined for MCMC analysis")
@@ -303,6 +306,11 @@ if options.MCMC_only:
         skipped = set(mycase.postproc_vars) - fluxnet_variables
         if skipped:
             print(f"Note: Skipped {skipped} (no FLUXNET equivalents)")
+    else:
+        # If observations already exist, use all postproc_vars for MCMC
+        print("Using existing observations")
+        valid_vars_for_mcmc = mycase.postproc_vars.copy()
+        print(f"Variables for MCMC: {valid_vars_for_mcmc}")
     
     # Check/train surrogate models
     def has_complete_surrogate(var):
