@@ -268,13 +268,24 @@ if options.MCMC_only:
                 
                 print(f"{var}: {valid_count}/{total_count} valid observations ({valid_pct:.1f}%)")
                 
+                # Calculate expected number of observations in postproc period
+                expected_postproc_obs = total_count  # default to total
+                if hasattr(mycase, 'postproc_startyear') and hasattr(mycase, 'postproc_endyear'):
+                    postproc_years = mycase.postproc_endyear - mycase.postproc_startyear + 1
+                    if options.tstep == 'monthly':
+                        expected_postproc_obs = postproc_years * 12
+                    elif options.tstep == 'daily':
+                        expected_postproc_obs = postproc_years * 366
+                    elif options.tstep == 'yearly':
+                        expected_postproc_obs = postproc_years
+                
                 if valid_count == 0:
                     print(f"  WARNING: No valid observations for {var} - SKIPPING from MCMC")
-                elif valid_count < 5:
-                    print(f"  WARNING: Very few observations for {var} (< 5) - SKIPPING from MCMC")
-                else:
+                elif valid_count == expected_postproc_obs:
                     valid_vars_for_mcmc.append(var)
-                    print(f"  ✓ Including {var} in MCMC")
+                    print(f"  ✓ Including {var} in MCMC (complete data: {valid_count}/{expected_postproc_obs})")
+                else:
+                    print(f"  WARNING: Incomplete observations for {var} ({valid_count}/{expected_postproc_obs}) - SKIPPING from MCMC")
         
         overall_pct = (total_valid / total_observations * 100) if total_observations > 0 else 0
         print(f"\nOverall: {total_valid}/{total_observations} valid observations ({overall_pct:.1f}%)")
