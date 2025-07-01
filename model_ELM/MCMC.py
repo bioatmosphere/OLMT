@@ -297,6 +297,22 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     parm_last = parms
     scalefac = 1.0
 
+    # Debug initial state
+    print(f"DEBUG: Starting MCMC with {nevals} evaluations")
+    print(f"DEBUG: Initial parameters: {parms}")
+    print(f"DEBUG: Parameter bounds - min: {self.ensemble_pmin}, max: {self.ensemble_pmax}")
+    
+    # Check initial posterior
+    initial_post, initial_output = calc_posterior(self, parms, myvars)
+    print(f"DEBUG: Initial posterior: {initial_post}")
+    if hasattr(self, 'obs'):
+        print(f"DEBUG: Available observations: {list(self.obs.keys())}")
+        for var in self.obs.keys():
+            valid_obs = np.sum(np.array(self.obs[var]) != -9999)
+            print(f"DEBUG: {var} has {valid_obs} valid observations out of {len(self.obs[var])}")
+    else:
+        print("DEBUG: No observations found (self.obs not defined)")
+
     for i in range(0,nevals):
         #update proposal step size
         if (i > 0 and (i % nburn) == 0 and i < burnsteps*nburn):
@@ -353,6 +369,11 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
         #------- run the model and calculate log likelihood -------------------
         thisoutput={}
         post, thisoutput = calc_posterior(self, parms, myvars)
+        
+        # Debug every 1000 iterations
+        if i % 1000 == 0:
+            print(f"DEBUG: Iteration {i}, current posterior: {post}, best so far: {post_best}")
+            
         #determine whether proposal step is accepted
         if ( (post - post_last < np.log(random.uniform(0,1)))):
             #if not accepted, go back to previous step
@@ -370,7 +391,8 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
             #keep track of best solution so far
             if (post > post_best):
                 post_best = post
-                parms_best = parms
+                parms_best = parms.copy()  # Use copy to avoid reference issues
+                print(f"DEBUG: New best posterior found at iteration {i}: {post_best}")
                 #print(post_best)
                 output_best = thisoutput
 
@@ -396,6 +418,18 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
 
     np.savetxt(UQ_output+'/MCMC_output/MCMC_chain.txt', np.transpose(chain_afterburn))
     #Print out some statistics
+    
+    # Debug: Check if parms_best is defined
+    try:
+        print(f"DEBUG: parms_best exists with length {len(parms_best)}")
+        print(f"DEBUG: parms_best = {parms_best}")
+    except NameError:
+        print("ERROR: parms_best is not defined!")
+        print("This suggests no MCMC iterations improved upon the initial posterior")
+        print("Initializing parms_best with starting parameters...")
+        parms_best = np.copy(parms)
+        print(f"DEBUG: Initialized parms_best = {parms_best}")
+    
     parm_best=open(UQ_output+'/MCMC_output/parms_best.txt','w')
     for p in range(0,len(parms_best)):
       parm_best.write(self.ensemble_parms[p]+' '+str(self.ensemble_pfts[p])+' '+str(parms_best[p])+'\n')
