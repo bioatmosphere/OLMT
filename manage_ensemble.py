@@ -307,13 +307,50 @@ if options.MCMC_only:
         if skipped:
             print(f"Note: Skipped {skipped} (no FLUXNET equivalents)")
     else:
-        # If observations already exist, apply same validation logic
-        print("Using existing observations")
+        # If observations already exist, offer option to reload or validate existing
+        print("Observations already exist in mycase.obs")
+        
+        # Check if we should reload observations
+        obs_dir = options.obs_dir or getattr(mycase, 'obs_dir', None)
+        if obs_dir and hasattr(mycase, 'site'):
+            print(f"Reloading observations from {obs_dir} to ensure consistency...")
+            
+            # Clear existing observations
+            mycase.obs = {}
+            mycase.obs_err = {}
+            
+            # Reload observations using the same logic as the "if not mycase.obs" block
+            fluxnet_variables = {'GPP', 'NEE', 'ER', 'FPSN', 'EFLX_LH_TOT', 'FSH'}
+            vars_to_load = [var for var in mycase.postproc_vars if var in fluxnet_variables]
+            
+            if not vars_to_load:
+                print("Error: No FLUXNET-compatible variables found in postproc_vars")
+                sys.exit(1)
+                
+            print(f"Loading FLUXNET observations for variables: {vars_to_load}")
+            loaded_count = 0
+            for var in vars_to_load:
+                try:
+                    mycase.get_fluxnet_obs(site=mycase.site, fluxnet_var=var, myobsdir=obs_dir, 
+                                          tstep=options.tstep, ystart=-1, yend=9999)
+                    loaded_count += 1
+                    print(f"✓ Loaded {var}")
+                except Exception as e:
+                    print(f"✗ Failed to load {var}: {e}")
+            
+            if loaded_count == 0:
+                print("Error: No observations could be loaded")
+                sys.exit(1)
+        else:
+            print("No obs_dir specified, validating existing observations...")
+            vars_to_load = mycase.postproc_vars
+        
+        # Apply same validation logic as the loading case
         print("\n=== Observation Quality Summary ===")
         total_valid = 0
         total_observations = 0
         
-        for var in mycase.postproc_vars:
+        for var in vars_to_load:
             if hasattr(mycase, 'obs') and var in mycase.obs:
                 obs_data = np.array(mycase.obs[var])
                 valid_count = np.sum(obs_data != -9999)
@@ -352,8 +389,8 @@ if options.MCMC_only:
             print("ERROR: No variables have sufficient valid observations for MCMC!")
             print("This will cause MCMC to fail. Check observation files and time periods.")
             sys.exit(1)
-        elif len(valid_vars_for_mcmc) < len(mycase.postproc_vars):
-            print(f"Note: Using {len(valid_vars_for_mcmc)}/{len(mycase.postproc_vars)} variables for MCMC")
+        elif len(valid_vars_for_mcmc) < len(vars_to_load):
+            print(f"Note: Using {len(valid_vars_for_mcmc)}/{len(vars_to_load)} variables for MCMC")
         
         print("=====================================\n")
     
