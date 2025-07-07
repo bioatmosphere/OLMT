@@ -301,6 +301,16 @@ if options.MCMC_only:
         elif len(valid_vars_for_mcmc) < len(vars_to_load):
             print(f"Note: Using {len(valid_vars_for_mcmc)}/{len(vars_to_load)} variables for MCMC")
         
+        # Filter valid_vars_for_mcmc to only include GPP, ER, NEE, and FPSN if they exist
+        priority_vars = ['GPP', 'ER', 'NEE', 'FPSN']
+        filtered_vars = [var for var in valid_vars_for_mcmc if var in priority_vars]
+        
+        if filtered_vars:
+            print(f"Filtering variables to priority flux variables: {filtered_vars}")
+            valid_vars_for_mcmc = filtered_vars
+        else:
+            print(f"No priority flux variables found in valid_vars_for_mcmc, using all: {valid_vars_for_mcmc}")
+        
         print("=====================================\n")
             
         skipped = set(mycase.postproc_vars) - fluxnet_variables
@@ -391,6 +401,16 @@ if options.MCMC_only:
             sys.exit(1)
         elif len(valid_vars_for_mcmc) < len(vars_to_load):
             print(f"Note: Using {len(valid_vars_for_mcmc)}/{len(vars_to_load)} variables for MCMC")
+        
+        # Filter valid_vars_for_mcmc to only include GPP, ER, NEE, and FPSN if they exist
+        priority_vars = ['GPP', 'ER', 'NEE', 'FPSN']
+        filtered_vars = [var for var in valid_vars_for_mcmc if var in priority_vars]
+        
+        if filtered_vars:
+            print(f"Filtering variables to priority flux variables: {filtered_vars}")
+            valid_vars_for_mcmc = filtered_vars
+        else:
+            print(f"No priority flux variables found in valid_vars_for_mcmc, using all: {valid_vars_for_mcmc}")
         
         print("=====================================\n")
     
