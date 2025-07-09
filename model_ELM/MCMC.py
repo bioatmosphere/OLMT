@@ -293,9 +293,21 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
       output[v]     = np.zeros((self.nobs[v],nevals))
     mycov      = np.zeros((nparms,nparms))
     for p in range(0,nparms):
-        #Starting step size = 1% of prior range
+        #Starting step size - reduced for more conservative proposals
         #parm_step[p] = 2.4**2/nparms * (model.pmax[p]-model.pmin[p])
-        parm_step[p] = 0.05 * (self.ensemble_pmax[p]-self.ensemble_pmin[p])
+        base_step = 0.02 * (self.ensemble_pmax[p]-self.ensemble_pmin[p])  # Reduced from 5% to 2%
+        
+        # Parameter-specific scaling for sensitive parameters
+        if hasattr(self, 'ensemble_parms') and p < len(self.ensemble_parms):
+            parm_name = self.ensemble_parms[p].lower()
+            if any(x in parm_name for x in ['vcmax', 'jmax', 'kmax']):
+                parm_step[p] = base_step * 0.5  # Extra reduction for photosynthesis
+            elif any(x in parm_name for x in ['q10', 'froz']):
+                parm_step[p] = base_step * 0.3  # Extra reduction for temperature sensitivity
+            else:
+                parm_step[p] = base_step
+        else:
+            parm_step[p] = base_step
         #parms[p] = np.random.uniform(parms[p]-parm_step[p],parms[p]+parm_step[p],1)
         #parms[p] = self.pdef[p]
         #parms_sens = np.copy(parms)
@@ -336,11 +348,11 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                                               accepted_step:accepted_tot])
             mycov_chain = np.cov(chain_burn[0:nparms,int(accepted_tot/4):accepted_tot])
             thisscalefac = 1.0
-            #Compute scaling factors for step sizes based on acceptance ratio
-            if (acc_ratio <= 0.2):
-                thisscalefac = max(acc_ratio/0.3, 0.15)
-            elif (acc_ratio > 0.4):
-                thisscalefac = min(acc_ratio/0.3, 2.5)
+            #Compute scaling factors for step sizes based on acceptance ratio (conservative)
+            if (acc_ratio <= 0.25):  # Target higher acceptance rate
+                thisscalefac = max(acc_ratio/0.35, 0.3)  # Less aggressive reduction
+            elif (acc_ratio > 0.55):  # Higher upper bound
+                thisscalefac = min(acc_ratio/0.35, 1.8)  # Less aggressive increase
             scalefac = scalefac * thisscalefac
             #Calculate covariance matrix of recent samples
             for j in range(0,nparms):
