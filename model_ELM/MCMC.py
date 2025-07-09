@@ -46,20 +46,35 @@ def calc_posterior(self,parms,myvars):
             prior = 0.0
     post = prior
     if (prior > 0.0):
+      # Run surrogate model to get predictions
       output = self.run_surrogate(parms.reshape(1, -1), myvars)
-      #output['NEEdiff'] = output['NEEdiff']*24*3600*365/9
+      
+      # Calculate likelihood for each variable
       for v in myvars:
-        myoutput = output[v].flatten()
-        myobs    = np.array(self.obs[v]).flatten()
-        myerr    = np.array(self.obs_err[v]).flatten()
-        for n in range(0,len(myoutput)):
-            if ((myobs[n]) > -9000 and myerr[n] > 0):
-                resid = (myoutput[n] - myobs[n])
-                ri = (resid/myerr[n])**2
-                li = -1.0 * np.log(2.0*np.pi)/2.0 - \
-                     np.log(myerr[n]) - ri/2.0
-                post = post + li
-                #print(v,n,myoutput[n],myobs[n],post)
+          model_output = output[v].flatten()
+          observations = np.array(self.obs[v]).flatten()
+          uncertainties = np.array(self.obs_err[v]).flatten()
+          
+          # Vectorized likelihood calculation for valid observations
+          valid_mask = (observations > -9000) & (uncertainties > 0)
+          valid_obs = observations[valid_mask]
+          valid_pred = model_output[valid_mask]
+          valid_err = uncertainties[valid_mask]
+          
+          if len(valid_obs) > 0:
+              # Calculate residuals and normalized residuals
+              residuals = valid_pred - valid_obs
+              normalized_residuals_sq = (residuals / valid_err) ** 2
+              
+              # Gaussian log-likelihood: log(1/√(2π)) - log(σ) - (residual/σ)²/2
+              log_likelihood = (
+                  -0.5 * np.log(2.0 * np.pi) - 
+                  np.log(valid_err) - 
+                  0.5 * normalized_residuals_sq
+              )
+              
+              # Add to total posterior
+              post += np.sum(log_likelihood)
     else:
         post = -9999999
         output={}

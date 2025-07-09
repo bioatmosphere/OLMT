@@ -154,6 +154,8 @@ parser.add_option("--obs_dir", dest="obs_dir", default="observations/fluxnet", \
                   help="Directory containing FLUXNET observation files (for MCMC-only mode)")
 parser.add_option("--tstep", dest="tstep", default="monthly", \
                   help="Time step for observation data ('monthly', 'daily', or 'yearly')")
+parser.add_option("--use_available_obs", dest="use_available_obs", default=False, \
+                  action="store_true", help="Use all available observations regardless of completeness")
 (options, args) = parser.parse_args()
 
 #Load case object
@@ -284,6 +286,13 @@ if options.MCMC_only:
                 
                 if valid_count == 0:
                     print(f"  WARNING: No valid observations for {var} - SKIPPING from MCMC")
+                elif options.use_available_obs:
+                    # Use all available observations regardless of completeness
+                    valid_vars_for_mcmc.append(var)
+                    if valid_count == expected_postproc_obs:
+                        print(f"  ✓ Including {var} in MCMC (complete data: {valid_count}/{expected_postproc_obs})")
+                    else:
+                        print(f"  ✓ Including {var} in MCMC (partial data: {valid_count}/{expected_postproc_obs}) - using available observations")
                 elif valid_count == expected_postproc_obs:
                     valid_vars_for_mcmc.append(var)
                     print(f"  ✓ Including {var} in MCMC (complete data: {valid_count}/{expected_postproc_obs})")
@@ -385,6 +394,13 @@ if options.MCMC_only:
                 
                 if valid_count == 0:
                     print(f"  WARNING: No valid observations for {var} - SKIPPING from MCMC")
+                elif options.use_available_obs:
+                    # Use all available observations regardless of completeness
+                    valid_vars_for_mcmc.append(var)
+                    if valid_count == expected_postproc_obs:
+                        print(f"  ✓ Including {var} in MCMC (complete data: {valid_count}/{expected_postproc_obs})")
+                    else:
+                        print(f"  ✓ Including {var} in MCMC (partial data: {valid_count}/{expected_postproc_obs}) - using available observations")
                 elif valid_count == expected_postproc_obs:
                     valid_vars_for_mcmc.append(var)
                     print(f"  ✓ Including {var} in MCMC (complete data: {valid_count}/{expected_postproc_obs})")
