@@ -335,8 +335,38 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     if hasattr(self, 'obs'):
         print(f"DEBUG: Available observations: {list(self.obs.keys())}")
         for var in self.obs.keys():
-            valid_obs = np.sum(np.array(self.obs[var]) != -9999)
+            obs_array = np.array(self.obs[var])
+            valid_mask = obs_array != -9999
+            valid_obs = np.sum(valid_mask)
             print(f"DEBUG: {var} has {valid_obs} valid observations out of {len(self.obs[var])}")
+            
+            # Print observation values and uncertainties
+            if hasattr(self, 'obs_err') and var in self.obs_err:
+                err_array = np.array(self.obs_err[var])
+                valid_obs_vals = obs_array[valid_mask]
+                valid_err_vals = err_array[valid_mask]
+                
+                print(f"DEBUG: {var} observation values (valid only):")
+                print(f"  Min: {np.min(valid_obs_vals):.4f}, Max: {np.max(valid_obs_vals):.4f}, Mean: {np.mean(valid_obs_vals):.4f}")
+                print(f"DEBUG: {var} uncertainty values (valid only):")
+                print(f"  Min: {np.min(valid_err_vals):.4f}, Max: {np.max(valid_err_vals):.4f}, Mean: {np.mean(valid_err_vals):.4f}")
+                
+                # Print first few values for detailed inspection
+                n_show = min(5, len(valid_obs_vals))
+                print(f"DEBUG: {var} first {n_show} valid obs/uncertainty pairs:")
+                for i in range(n_show):
+                    print(f"  [{i}] obs: {valid_obs_vals[i]:.4f} ± {valid_err_vals[i]:.4f}")
+            else:
+                print(f"DEBUG: No uncertainty data found for {var}")
+                valid_obs_vals = obs_array[valid_mask]
+                print(f"DEBUG: {var} observation values (valid only):")
+                print(f"  Min: {np.min(valid_obs_vals):.4f}, Max: {np.max(valid_obs_vals):.4f}, Mean: {np.mean(valid_obs_vals):.4f}")
+                
+                # Print first few values
+                n_show = min(5, len(valid_obs_vals))
+                print(f"DEBUG: {var} first {n_show} valid observations:")
+                for i in range(n_show):
+                    print(f"  [{i}] obs: {valid_obs_vals[i]:.4f}")
     else:
         print("DEBUG: No observations found (self.obs not defined)")
 
@@ -402,7 +432,7 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
             print(f"DEBUG: Iteration {i}, current posterior: {post}, best so far: {post_best}")
             
         #determine whether proposal step is accepted
-        if ( (post - post_last < np.log(random.uniform(0,1)))):
+        if ( (post - post_last < np.log(random.uniform(0,1))) ):
             #if not accepted, go back to previous step
             for j in range(0,nparms):
                 parms[j] = parm_last[j]

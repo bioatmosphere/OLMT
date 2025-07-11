@@ -106,6 +106,29 @@ def active_processes(processes,process_jobnum,process_hang):
         n=n+1
     return pactive
 
+def filter_priority_vars(valid_vars_for_mcmc):
+    """Filter variables to prioritize flux variables (GPP, ER, NEE, FPSN) if available.
+    
+    Parameters
+    ----------
+    valid_vars_for_mcmc : list
+        List of variables that have valid observations for MCMC
+        
+    Returns
+    -------
+    list
+        Filtered list prioritizing flux variables if available, otherwise original list
+    """
+    priority_vars = ['GPP', 'ER', 'NEE', 'FPSN']
+    filtered_vars = [var for var in valid_vars_for_mcmc if var in priority_vars]
+    
+    if filtered_vars:
+        print(f"Filtering variables to priority flux variables: {filtered_vars}")
+        return filtered_vars
+    else:
+        print(f"No priority flux variables found in valid_vars_for_mcmc, using all: {valid_vars_for_mcmc}")
+        return valid_vars_for_mcmc
+
 def postprocess_ensemble(n):
   """Postprocess ensemble member outputs.
 
@@ -310,15 +333,8 @@ if options.MCMC_only:
         elif len(valid_vars_for_mcmc) < len(vars_to_load):
             print(f"Note: Using {len(valid_vars_for_mcmc)}/{len(vars_to_load)} variables for MCMC")
         
-        # Filter valid_vars_for_mcmc to only include GPP, ER, NEE, and FPSN if they exist
-        priority_vars = ['GPP', 'ER', 'NEE', 'FPSN']
-        filtered_vars = [var for var in valid_vars_for_mcmc if var in priority_vars]
-        
-        if filtered_vars:
-            print(f"Filtering variables to priority flux variables: {filtered_vars}")
-            valid_vars_for_mcmc = filtered_vars
-        else:
-            print(f"No priority flux variables found in valid_vars_for_mcmc, using all: {valid_vars_for_mcmc}")
+        # Filter to priority flux variables if available
+        valid_vars_for_mcmc = filter_priority_vars(valid_vars_for_mcmc)
         
         print("=====================================\n")
             
@@ -418,15 +434,8 @@ if options.MCMC_only:
         elif len(valid_vars_for_mcmc) < len(vars_to_load):
             print(f"Note: Using {len(valid_vars_for_mcmc)}/{len(vars_to_load)} variables for MCMC")
         
-        # Filter valid_vars_for_mcmc to only include GPP, ER, NEE, and FPSN if they exist
-        priority_vars = ['GPP', 'ER', 'NEE', 'FPSN']
-        filtered_vars = [var for var in valid_vars_for_mcmc if var in priority_vars]
-        
-        if filtered_vars:
-            print(f"Filtering variables to priority flux variables: {filtered_vars}")
-            valid_vars_for_mcmc = filtered_vars
-        else:
-            print(f"No priority flux variables found in valid_vars_for_mcmc, using all: {valid_vars_for_mcmc}")
+        # Filter to priority flux variables if available
+        valid_vars_for_mcmc = filter_priority_vars(valid_vars_for_mcmc)
         
         print("=====================================\n")
     
