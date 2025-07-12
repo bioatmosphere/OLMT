@@ -49,6 +49,15 @@ def calc_posterior(self,parms,myvars):
       # Run surrogate model to get predictions
       output = self.run_surrogate(parms.reshape(1, -1), myvars)
       
+      # Apply unit conversions for carbon flux variables from gC/m²/s to gC/m²/year
+      flux_vars = ['GPP', 'ER', 'NEE']
+      for var in output:
+          #var_base = var.split('_pft')[0]  # Remove _pft suffix for comparison
+          if var in flux_vars:
+              # Convert from gC/m²/s to gC/m²/year
+              # Multiply by seconds per year: 365.25 * 24 * 3600 = 31,557,600 seconds/year
+              output[var] = output[var] * 31557600.0
+      
       # Calculate likelihood for each variable
       for v in myvars:
           model_output = output[v].flatten()

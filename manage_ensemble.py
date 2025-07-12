@@ -119,7 +119,7 @@ def filter_priority_vars(valid_vars_for_mcmc):
     list
         Filtered list prioritizing flux variables if available, otherwise original list
     """
-    priority_vars = ['GPP', 'ER', 'NEE', 'FPSN']
+    priority_vars = ['GPP', 'ER', 'NEE'] # 'FPSN' is not included
     filtered_vars = [var for var in valid_vars_for_mcmc if var in priority_vars]
     
     if filtered_vars:
