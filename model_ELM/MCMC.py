@@ -349,6 +349,10 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
             valid_obs = np.sum(valid_mask)
             print(f"DEBUG: {var} has {valid_obs} valid observations out of {len(self.obs[var])}")
             
+            # Skip detailed debug output if no valid observations
+            if valid_obs == 0:
+                continue
+            
             # Print observation values and uncertainties
             if hasattr(self, 'obs_err') and var in self.obs_err:
                 err_array = np.array(self.obs_err[var])
