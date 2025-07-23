@@ -462,7 +462,7 @@ if options.MCMC_only:
     parms = (np.array(mycase.ensemble_pmax) + np.array(mycase.ensemble_pmin)) / 2
     
     # Option to read new starting parameter values from file
-    start_parms_file = './PTTAM/' + mycase.site + '_parm_list_tam'
+    start_parms_file = './inputdata/PTTAM/' + mycase.site + '_parm_list_tam'
     if os.path.exists(start_parms_file):
         print(f"Reading starting parameters from: {start_parms_file}")
         try:
@@ -472,7 +472,16 @@ if options.MCMC_only:
                 for line in lines:
                     line = line.strip()
                     if line and not line.startswith('#'):  # Skip empty lines and comments
-                        new_parms.append(float(line))
+                        parts = line.split()
+                        if len(parts) >= 3:
+                            # Calculate midpoint between min (parts[1]) and max (parts[2])
+                            min_val = float(parts[1])
+                            max_val = float(parts[2])
+                            midpoint = (min_val + max_val) / 2
+                            new_parms.append(midpoint)
+                        else:
+                            # If not enough values, treat as single parameter value
+                            new_parms.append(float(parts[0]))
                 
                 if len(new_parms) == len(parms):
                     parms = np.array(new_parms)
