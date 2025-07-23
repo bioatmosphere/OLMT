@@ -457,7 +457,32 @@ if options.MCMC_only:
     #NOTE: different MCMC algorithms can be used here
     print("Starting MCMC parameter estimation...")
     print(f"Using variables: {valid_vars_for_mcmc}")
+    
+    # Default starting parameters (midpoint between min and max)
     parms = (np.array(mycase.ensemble_pmax) + np.array(mycase.ensemble_pmin)) / 2
+    
+    # Option to read new starting parameter values from file
+    start_parms_file = './PTTAM/' + mycase.site + '_parm_list_tam'
+    if os.path.exists(start_parms_file):
+        print(f"Reading starting parameters from: {start_parms_file}")
+        try:
+            with open(start_parms_file, 'r') as f:
+                lines = f.readlines()
+                new_parms = []
+                for line in lines:
+                    line = line.strip()
+                    if line and not line.startswith('#'):  # Skip empty lines and comments
+                        new_parms.append(float(line))
+                
+                if len(new_parms) == len(parms):
+                    parms = np.array(new_parms)
+                    print(f"Successfully loaded starting parameters: {parms}")
+                else:
+                    print(f"WARNING: Expected {len(parms)} parameters, found {len(new_parms)} in file. Using default starting values")
+        except Exception as e:
+            print(f"ERROR reading starting parameters file: {e}")
+            print("Using default starting parameter values")
+    
     mycase.MCMC(parms, valid_vars_for_mcmc, 100000)
     
     # Save results
