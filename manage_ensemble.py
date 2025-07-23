@@ -457,41 +457,8 @@ if options.MCMC_only:
     #NOTE: different MCMC algorithms can be used here
     print("Starting MCMC parameter estimation...")
     print(f"Using variables: {valid_vars_for_mcmc}")
-    
     # Default starting parameters (midpoint between min and max)
     parms = (np.array(mycase.ensemble_pmax) + np.array(mycase.ensemble_pmin)) / 2
-    
-    # Option to read new starting parameter values from file
-    start_parms_file = './inputdata/PTTAM/' + mycase.site + '_parm_list_tam'
-    if os.path.exists(start_parms_file):
-        print(f"Reading starting parameters from: {start_parms_file}")
-        try:
-            with open(start_parms_file, 'r') as f:
-                lines = f.readlines()
-                new_parms = []
-                for line in lines:
-                    line = line.strip()
-                    if line and not line.startswith('#'):  # Skip empty lines and comments
-                        parts = line.split()
-                        if len(parts) >= 3:
-                            # Calculate midpoint between min (parts[1]) and max (parts[2])
-                            min_val = float(parts[1])
-                            max_val = float(parts[2])
-                            midpoint = (min_val + max_val) / 2
-                            new_parms.append(midpoint)
-                        else:
-                            # If not enough values, treat as single parameter value
-                            new_parms.append(float(parts[0]))
-                
-                if len(new_parms) == len(parms):
-                    parms = np.array(new_parms)
-                    print(f"Successfully loaded starting parameters: {parms}")
-                else:
-                    print(f"WARNING: Expected {len(parms)} parameters, found {len(new_parms)} in file. Using default starting values")
-        except Exception as e:
-            print(f"ERROR reading starting parameters file: {e}")
-            print("Using default starting parameter values")
-    
     mycase.MCMC(parms, valid_vars_for_mcmc, 100000)
     
     # Save results
