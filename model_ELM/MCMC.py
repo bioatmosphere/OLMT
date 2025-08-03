@@ -2798,10 +2798,13 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                 if i < burnsteps * nburn and i % 50 == 0 and adaptation_count > 10:
                     chain_recent = chain[0:nparms, max(0, i-500):i+1]
                     if chain_recent.shape[1] > nparms:
+                        # Calculate current acceptance rate for adaptive update
+                        current_accept_rate = accepted_tot / (i + 1) if i > 0 else 0.0
+                        
                         # Apply adaptive Metropolis update
                         mycov = adaptive_metropolis_update(
-                            mycov, chain_recent, scaling_factor=scaling_factor,
-                            adaptation_factor=0.1)
+                            mycov, chain_recent, accept_rate=current_accept_rate,
+                            adaptation_rate=0.1)
                         
                         # Apply sensitivity-informed scaling if available
                         if sensitivity_info is not None:
