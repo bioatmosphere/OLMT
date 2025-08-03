@@ -1845,6 +1845,13 @@ def convergence_diagnostics(self, chain_samples, param_names=None,
     }
     
     if n_samples < window_size * 2:
+        # Not enough samples for reliable diagnostics, return defaults
+        diagnostics['rhat_max'] = 1.0
+        diagnostics['rhat_mean'] = 1.0
+        diagnostics['ess_min'] = 0.0
+        diagnostics['ess_mean'] = 0.0
+        diagnostics['all_converged'] = False
+        diagnostics['fraction_converged'] = 0.0
         return diagnostics
     
     # Split chains in half to simulate multiple chains
@@ -1884,6 +1891,32 @@ def convergence_diagnostics(self, chain_samples, param_names=None,
         ess = n_samples / tau
         diagnostics['ess_bulk'][param_name] = ess
         diagnostics['ess_tail'][param_name] = ess * 0.8  # Conservative estimate
+    
+    # Compute summary statistics
+    if diagnostics['r_hat']:
+        rhat_values = list(diagnostics['r_hat'].values())
+        diagnostics['rhat_max'] = max(rhat_values)
+        diagnostics['rhat_mean'] = np.mean(rhat_values)
+    else:
+        diagnostics['rhat_max'] = 1.0
+        diagnostics['rhat_mean'] = 1.0
+    
+    if diagnostics['ess_bulk']:
+        ess_values = list(diagnostics['ess_bulk'].values())
+        diagnostics['ess_min'] = min(ess_values)
+        diagnostics['ess_mean'] = np.mean(ess_values)
+    else:
+        diagnostics['ess_min'] = 0.0
+        diagnostics['ess_mean'] = 0.0
+    
+    # Overall convergence assessment
+    if diagnostics['converged']:
+        converged_values = list(diagnostics['converged'].values())
+        diagnostics['all_converged'] = all(converged_values)
+        diagnostics['fraction_converged'] = np.mean(converged_values)
+    else:
+        diagnostics['all_converged'] = False
+        diagnostics['fraction_converged'] = 0.0
     
     return diagnostics
 
@@ -2861,7 +2894,7 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                 convergence_history['iterations'].append(i)
                 convergence_history['rhat_max'].append(convergence_result['rhat_max'])
                 convergence_history['ess_min'].append(convergence_result['ess_min'])
-                convergence_history['converged'].append(convergence_result['converged'])
+                convergence_history['converged'].append(convergence_result['all_converged'])
                 
                 # Check auto-stopping criterion
                 if self.auto_stopping_criterion(convergence_result, min_ess=100):
