@@ -1027,12 +1027,17 @@ def adaptive_metropolis_update(current_cov, chain_samples, accept_rate,
     try:
         empirical_cov = np.cov(chain_samples)
         
-        # Haario et al. (2001) formula: 
+        # Enhanced Haario et al. (2001) formula with better regularization
         # C_n = s_d * Cov(X_0, ..., X_{n-1}) + s_d * ε * I_d
         # where s_d = (2.4)^2 / d (optimal scaling)
         optimal_scaling = (2.4 ** 2) / n_params
         
-        new_cov = optimal_scaling * empirical_cov + regularization * np.eye(n_params)
+        # Improved regularization based on empirical covariance eigenvalues
+        eigenvals = np.linalg.eigvals(empirical_cov)
+        min_eigenval = np.min(eigenvals)
+        adaptive_reg = max(regularization, 0.01 * min_eigenval) if min_eigenval > 0 else regularization
+        
+        new_cov = optimal_scaling * empirical_cov + adaptive_reg * np.eye(n_params)
         
         # Apply acceptance rate adjustment
         new_cov *= (scale_factor ** 2)
@@ -1208,8 +1213,22 @@ def extract_sensitivity_info(self, myvars, aggregation_method='mean',
     sensitivity_info : dict
         Dictionary containing processed sensitivity information.
     """
+    # Comprehensive validation of GSA data
     if not hasattr(self, 'sens_main') or not hasattr(self, 'sens_tot'):
         return None
+    
+    # Check if GSA data has any valid variables
+    valid_gsa_vars = [v for v in myvars if (v in self.sens_main and v in self.sens_tot)]
+    if not valid_gsa_vars:
+        print("WARNING: No valid GSA data found for specified variables")
+        return None
+    
+    # Validate GSA data structure
+    for v in valid_gsa_vars:
+        if (self.sens_main[v].shape[0] != self.nparms_ensemble or 
+            self.sens_tot[v].shape[0] != self.nparms_ensemble):
+            print(f"WARNING: GSA data dimension mismatch for variable {v}")
+            return None
     
     sensitivity_info = {
         'param_importance': {},
@@ -1229,13 +1248,15 @@ def extract_sensitivity_info(self, myvars, aggregation_method='mean',
         main_values = []
         total_values = []
         
-        for v in myvars:
-            if v in self.sens_main and v in self.sens_tot:
+        for v in valid_gsa_vars:
                 # Average across time dimensions if multiple outputs exist
                 main_sens = np.mean(self.sens_main[v][p, :])
                 total_sens = np.mean(self.sens_tot[v][p, :])
-                main_values.append(main_sens)
-                total_values.append(total_sens)
+                
+                # Validate sensitivity values
+                if np.isfinite(main_sens) and np.isfinite(total_sens):
+                    main_values.append(max(0.0, main_sens))  # Ensure non-negative
+                    total_values.append(max(0.0, total_sens))  # Ensure non-negative
         
         if main_values:
             if aggregation_method == 'mean':
@@ -1277,19 +1298,34 @@ def extract_sensitivity_info(self, myvars, aggregation_method='mean',
     
     # Identify strong parameter interactions
     if hasattr(self, 'sens_2nd'):
-        for v in myvars:
+        # Dictionary to track strongest interaction for each parameter pair
+        interaction_dict = {}
+        
+        for v in valid_gsa_vars:
             if v in self.sens_2nd:
                 for i in range(self.nparms_ensemble):
                     for j in range(i+1, self.nparms_ensemble):
                         # Average 2nd order sensitivity across time dimensions
                         interaction_strength = np.mean(self.sens_2nd[v][i, j, :])
-                        if interaction_strength > importance_threshold * 0.5:  # Lower threshold for interactions
+                        
+                        # Validate interaction strength and check threshold
+                        if (np.isfinite(interaction_strength) and 
+                            interaction_strength > 0 and 
+                            interaction_strength > importance_threshold * 0.5):  # Lower threshold for interactions
                             param_i = self.ensemble_parms[i] if i < len(self.ensemble_parms) else f'param_{i}'
                             param_j = self.ensemble_parms[j] if j < len(self.ensemble_parms) else f'param_{j}'
-                            sensitivity_info['interaction_pairs'].append((param_i, param_j, interaction_strength))
+                            
+                            # Keep the strongest interaction for each parameter pair
+                            pair_key = (param_i, param_j)
+                            if pair_key not in interaction_dict or interaction_strength > interaction_dict[pair_key][2]:
+                                interaction_dict[pair_key] = (param_i, param_j, interaction_strength)
         
-        # Sort interaction pairs by strength
+        # Convert to list and sort by strength
+        sensitivity_info['interaction_pairs'] = list(interaction_dict.values())
         sensitivity_info['interaction_pairs'].sort(key=lambda x: x[2], reverse=True)
+        
+        # Store interactions in a different format for easier access
+        sensitivity_info['interactions'] = sensitivity_info['interaction_pairs']
     
     return sensitivity_info
 
@@ -1482,6 +1518,406 @@ def apply_sensitivity_informed_scaling(self, current_cov, sensitivity_info,
     }
     
     return updated_cov, scaling_info
+
+# ======================================================================
+# Advanced MCMC Sampling Techniques
+# ======================================================================
+
+def delayed_rejection_step(self, parm_current, mycov, myvars, post_current, 
+                          max_stages=2, scale_factors=[1.0, 0.5]):
+    """
+    Implement delayed rejection for better acceptance rates.
+    
+    If first proposal is rejected, try again with smaller step size.
+    This helps escape local regions and improves acceptance rates.
+    
+    Parameters
+    ----------
+    parm_current : ndarray
+        Current parameter values.
+    mycov : ndarray
+        Current covariance matrix.
+    myvars : list
+        Variables for posterior calculation.
+    post_current : float
+        Current posterior value.
+    max_stages : int
+        Maximum number of rejection stages.
+    scale_factors : list
+        Scaling factors for each stage.
+        
+    Returns
+    -------
+    parm_new : ndarray
+        New parameter values (current if all rejected).
+    post_new : float
+        New posterior value.
+    accepted : bool
+        Whether any proposal was accepted.
+    stage_accepted : int
+        Which stage was accepted (0 if none).
+    """
+    for stage in range(max_stages):
+        scale = scale_factors[min(stage, len(scale_factors)-1)]
+        scaled_cov = (scale ** 2) * mycov
+        
+        # Generate proposal
+        parm_proposal, success = enhanced_proposal_step(
+            parm_current, scaled_cov, method='multivariate_normal')
+        
+        if not success:
+            continue
+        
+        # Calculate posterior
+        post_proposal, _ = calc_posterior(self, parm_proposal, myvars)
+        
+        # Metropolis acceptance
+        if post_proposal - post_current >= np.log(random.uniform(0, 1)):
+            return parm_proposal, post_proposal, True, stage + 1
+    
+    # All proposals rejected
+    return parm_current, post_current, False, 0
+
+def block_sampling_step(self, parm_current, mycov, myvars, post_current, 
+                       correlation_blocks=None, sensitivity_info=None):
+    """
+    Implement block sampling for highly correlated parameters.
+    
+    Parameters
+    ----------
+    parm_current : ndarray
+        Current parameter values.
+    mycov : ndarray
+        Current covariance matrix.
+    myvars : list
+        Variables for posterior calculation.
+    post_current : float
+        Current posterior value.
+    correlation_blocks : list of lists
+        Parameter indices grouped into correlated blocks.
+    sensitivity_info : dict
+        Sensitivity information for identifying blocks.
+        
+    Returns
+    -------
+    parm_new : ndarray
+        Updated parameter values.
+    post_new : float
+        New posterior value.
+    n_accepted : int
+        Number of blocks accepted.
+    block_info : dict
+        Information about block updates.
+    """
+    if correlation_blocks is None:
+        correlation_blocks = identify_correlation_blocks(
+            mycov, sensitivity_info, max_block_size=5, ensemble_parms=self.ensemble_parms)
+    
+    parm_new = parm_current.copy()
+    post_new = post_current
+    n_accepted = 0
+    block_info = {'blocks_tried': len(correlation_blocks), 'blocks_accepted': 0}
+    
+    for block_idx, block in enumerate(correlation_blocks):
+        if len(block) == 0:
+            continue
+        
+        # Extract block covariance
+        block_cov = mycov[np.ix_(block, block)]
+        block_params = parm_new[block]
+        
+        # Generate block proposal
+        try:
+            block_proposal = np.random.multivariate_normal(block_params, block_cov)
+        except:
+            # Fallback to diagonal if covariance issues
+            block_proposal = block_params + np.sqrt(np.diag(block_cov)) * np.random.randn(len(block))
+        
+        # Create full parameter vector with block proposal
+        parm_proposal = parm_new.copy()
+        parm_proposal[block] = block_proposal
+        
+        # Calculate posterior
+        post_proposal, _ = calc_posterior(self, parm_proposal, myvars)
+        
+        # Block Metropolis acceptance
+        if post_proposal - post_new >= np.log(random.uniform(0, 1)):
+            parm_new = parm_proposal
+            post_new = post_proposal
+            n_accepted += 1
+            block_info['blocks_accepted'] += 1
+    
+    return parm_new, post_new, n_accepted, block_info
+
+def identify_correlation_blocks(mycov, sensitivity_info=None, 
+                               correlation_threshold=0.6, max_block_size=5, ensemble_parms=None):
+    """
+    Identify correlated parameter blocks for block sampling.
+    
+    Parameters
+    ----------
+    mycov : ndarray
+        Covariance matrix.
+    sensitivity_info : dict, optional
+        Sensitivity information.
+    correlation_threshold : float
+        Threshold for considering parameters correlated.
+    max_block_size : int
+        Maximum size of parameter blocks.
+    ensemble_parms : list, optional
+        List of parameter names for sensitivity-based blocking.
+        
+    Returns
+    -------
+    blocks : list of lists
+        Parameter indices grouped into blocks.
+    """
+    n_params = mycov.shape[0]
+    
+    # Convert covariance matrix to correlation matrix
+    if mycov.ndim == 2:
+        # Compute correlation matrix from covariance matrix
+        diag_sqrt = np.sqrt(np.diag(mycov))
+        corr_matrix = mycov / np.outer(diag_sqrt, diag_sqrt)
+        # Handle division by zero
+        corr_matrix = np.where(np.isfinite(corr_matrix), corr_matrix, 0.0)
+    else:
+        corr_matrix = np.eye(n_params)
+    
+    # Start with individual parameters
+    blocks = [[i] for i in range(n_params)]
+    used_params = set()
+    final_blocks = []
+    
+    # Group highly correlated parameters
+    for i in range(n_params):
+        if i in used_params:
+            continue
+        
+        current_block = [i]
+        used_params.add(i)
+        
+        # Find correlated parameters
+        for j in range(i+1, n_params):
+            if j in used_params:
+                continue
+            
+            if abs(corr_matrix[i, j]) >= correlation_threshold:
+                current_block.append(j)
+                used_params.add(j)
+                
+                if len(current_block) >= max_block_size:
+                    break
+        
+        final_blocks.append(current_block)
+    
+    # Add sensitivity-based blocking if available
+    if sensitivity_info and 'interaction_pairs' in sensitivity_info:
+        interaction_blocks = []
+        for param1, param2, strength in sensitivity_info['interaction_pairs'][:3]:
+            # Find parameter indices
+            try:
+                if ensemble_parms is not None:
+                    idx1 = ensemble_parms.index(param1)
+                    idx2 = ensemble_parms.index(param2)
+                else:
+                    continue
+                if strength > 0.1:  # Strong interaction
+                    interaction_blocks.append([idx1, idx2])
+            except ValueError:
+                continue
+        
+        # Merge with existing blocks if not already grouped
+        for int_block in interaction_blocks:
+            if not any(all(idx in block for idx in int_block) for block in final_blocks):
+                final_blocks.append(int_block)
+    
+    return final_blocks
+
+def parallel_tempering_step(self, parm_current, mycov, myvars, post_current,
+                           n_temperatures=4, temp_schedule=None, swap_interval=50):
+    """
+    Simplified parallel tempering for multimodal exploration.
+    
+    Note: This is a simplified version. Full parallel tempering would require
+    multiple chains running in parallel.
+    
+    Parameters
+    ----------
+    parm_current : ndarray
+        Current parameter values.
+    mycov : ndarray
+        Current covariance matrix.
+    myvars : list
+        Variables for posterior calculation.
+    post_current : float
+        Current posterior value.
+    n_temperatures : int
+        Number of temperature levels.
+    temp_schedule : list, optional
+        Temperature schedule.
+    swap_interval : int
+        How often to attempt temperature swaps.
+        
+    Returns
+    -------
+    parm_new : ndarray
+        New parameter values.
+    post_new : float
+        New posterior value.
+    temp_info : dict
+        Temperature information.
+    """
+    if temp_schedule is None:
+        temp_schedule = [1.0 + i * 0.5 for i in range(n_temperatures)]
+    
+    # Simple implementation: occasionally use higher temperature
+    use_high_temp = random.random() < 0.1  # 10% chance
+    
+    if use_high_temp:
+        temperature = temp_schedule[1] if len(temp_schedule) > 1 else 2.0
+        heated_cov = (temperature ** 2) * mycov
+        
+        # Generate proposal with higher temperature
+        parm_proposal, success = enhanced_proposal_step(
+            parm_current, heated_cov, method='multivariate_normal')
+        
+        if success:
+            post_proposal, _ = calc_posterior(self, parm_proposal, myvars)
+            
+            # Tempered acceptance (multiply by temperature factor)
+            tempered_alpha = min(1.0, np.exp((post_proposal - post_current) / temperature))
+            
+            if random.random() < tempered_alpha:
+                return parm_proposal, post_proposal, {'temperature_used': temperature, 'accepted': True}
+    
+    # Standard temperature step
+    parm_proposal, success = enhanced_proposal_step(
+        parm_current, mycov, method='multivariate_normal')
+    
+    if success:
+        post_proposal, _ = calc_posterior(self, parm_proposal, myvars)
+        
+        if post_proposal - post_current >= np.log(random.uniform(0, 1)):
+            return parm_proposal, post_proposal, {'temperature_used': 1.0, 'accepted': True}
+    
+    return parm_current, post_current, {'temperature_used': 1.0, 'accepted': False}
+
+def convergence_diagnostics(self, chain_samples, param_names=None, 
+                           window_size=1000, r_hat_threshold=1.1):
+    """
+    Calculate convergence diagnostics including Gelman-Rubin R-hat.
+    
+    Parameters
+    ----------
+    chain_samples : ndarray
+        Chain samples (nparms x nsamples).
+    param_names : list, optional
+        Parameter names.
+    window_size : int
+        Window size for running diagnostics.
+    r_hat_threshold : float
+        Threshold for convergence (R-hat < threshold).
+        
+    Returns
+    -------
+    diagnostics : dict
+        Convergence diagnostic results.
+    """
+    chain_samples = np.atleast_2d(chain_samples)
+    n_params, n_samples = chain_samples.shape
+    
+    if param_names is None:
+        param_names = [f'param_{i}' for i in range(n_params)]
+    
+    diagnostics = {
+        'r_hat': {},
+        'ess_bulk': {},
+        'ess_tail': {},
+        'converged': {},
+        'n_samples': n_samples,
+        'window_size': window_size
+    }
+    
+    if n_samples < window_size * 2:
+        return diagnostics
+    
+    # Split chains in half to simulate multiple chains
+    mid_point = n_samples // 2
+    chain1 = chain_samples[:, :mid_point]
+    chain2 = chain_samples[:, mid_point:]
+    
+    for i, param_name in enumerate(param_names):
+        if i >= n_params:
+            break
+        
+        # Calculate R-hat (Gelman-Rubin statistic)
+        chain1_mean = np.mean(chain1[i])
+        chain2_mean = np.mean(chain2[i])
+        overall_mean = np.mean(chain_samples[i])
+        
+        # Between-chain variance
+        B = mid_point * ((chain1_mean - overall_mean)**2 + (chain2_mean - overall_mean)**2)
+        
+        # Within-chain variance
+        W = (np.var(chain1[i], ddof=1) + np.var(chain2[i], ddof=1)) / 2
+        
+        # Pooled variance estimate
+        var_plus = ((mid_point - 1) * W + B) / mid_point
+        
+        # R-hat statistic
+        if W > 0:
+            r_hat = np.sqrt(var_plus / W)
+        else:
+            r_hat = 1.0
+        
+        diagnostics['r_hat'][param_name] = r_hat
+        diagnostics['converged'][param_name] = r_hat < r_hat_threshold
+        
+        # Simple ESS estimates
+        tau = autocorr_time_1d(chain_samples[i], quiet=True)
+        ess = n_samples / tau
+        diagnostics['ess_bulk'][param_name] = ess
+        diagnostics['ess_tail'][param_name] = ess * 0.8  # Conservative estimate
+    
+    return diagnostics
+
+def auto_stopping_criterion(self, diagnostics, min_ess=100, min_samples=1000):
+    """
+    Determine if MCMC should stop based on convergence diagnostics.
+    
+    Parameters
+    ----------
+    diagnostics : dict
+        Convergence diagnostics.
+    min_ess : float
+        Minimum required ESS.
+    min_samples : int
+        Minimum number of samples before stopping.
+        
+    Returns
+    -------
+    should_stop : bool
+        Whether to stop sampling.
+    stop_reason : str
+        Reason for stopping decision.
+    """
+    if diagnostics['n_samples'] < min_samples:
+        return False, "Insufficient samples"
+    
+    # Check convergence
+    all_converged = all(diagnostics['converged'].values()) if diagnostics['converged'] else False
+    
+    if not all_converged:
+        return False, "Not converged (R-hat > threshold)"
+    
+    # Check ESS
+    min_ess_achieved = min(diagnostics['ess_bulk'].values()) if diagnostics['ess_bulk'] else 0
+    
+    if min_ess_achieved < min_ess:
+        return False, f"Insufficient ESS (min: {min_ess_achieved:.1f})"
+    
+    return True, "Convergence criteria met"
 
 def calc_posterior(self,parms,myvars):
     """Calculate the posterior (prior and log likelihood)
@@ -1755,7 +2191,9 @@ def _save_pymc3_results(self, trace, parms_best, UQ_output, myvars):
 
 def MCMC_custom(self, parms, myvars, nevals, *, 
          mcmc_type='uniform', nburn=1000, burnsteps=10, 
-         default_output=None, sampler='custom', enable_adaptive=True, **kwargs):
+         default_output=None, sampler='custom', enable_adaptive=True,
+         enable_delayed_rejection=True, enable_block_sampling=True,
+         enable_parallel_tempering=False, enable_auto_convergence=True, **kwargs):
     """
     Perform Markov Chain Monte Carlo (MCMC) to estimate the posterior distribution of parameters.
 
@@ -1785,6 +2223,14 @@ def MCMC_custom(self, parms, myvars, nevals, *,
     enable_adaptive : bool
         Enable adaptive proposal updates based on correlations (default: True).
         Only applies to 'custom' sampler.
+    enable_delayed_rejection : bool
+        Enable delayed rejection for better acceptance rates (default: True).
+    enable_block_sampling : bool
+        Enable block sampling for correlated parameters (default: True).
+    enable_parallel_tempering : bool
+        Enable simplified parallel tempering (default: False).
+    enable_auto_convergence : bool
+        Enable automatic convergence detection (default: True).
     **kwargs : dict
         Additional arguments passed to sampler (e.g., tune, target_accept)
 
@@ -1802,8 +2248,12 @@ def MCMC_custom(self, parms, myvars, nevals, *,
         if sampler == 'custom_adaptive':
             enable_adaptive = True
         
-        # Store adaptive setting for MCMC function to access
+        # Store settings for MCMC function to access
         self._enable_adaptive_mcmc = enable_adaptive
+        self._enable_delayed_rejection = enable_delayed_rejection
+        self._enable_block_sampling = enable_block_sampling
+        self._enable_parallel_tempering = enable_parallel_tempering
+        self._enable_auto_convergence = enable_auto_convergence
         
         return self.MCMC(parms, myvars, nevals, mcmc_type, nburn, burnsteps, default_output)
     elif sampler in ['pymc3', 'pymc3_nuts']:
@@ -1830,14 +2280,18 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     - Real-time adaptation monitoring and diagnostics
     """
     
-    # Check if adaptive MCMC is enabled
+    # Check which MCMC enhancements are enabled
     enable_adaptive = getattr(self, '_enable_adaptive_mcmc', True)
+    enable_delayed_rejection = getattr(self, '_enable_delayed_rejection', True)
+    enable_block_sampling = getattr(self, '_enable_block_sampling', True)
+    enable_parallel_tempering = getattr(self, '_enable_parallel_tempering', False)
+    enable_auto_convergence = getattr(self, '_enable_auto_convergence', True)
+    enable_auto_stopping = enable_auto_convergence  # Same setting, different variable name used in code
     
     UQ_output='./UQ_output/'+self.casename
     print(os.path.abspath(UQ_output))
     #Metropolis-Hastings Markov Chain Monte Carlo with adaptive sampling
-    post_best = -99999
-    post_last = -99999
+    # Variables post_best, post_last, parms_best initialized after calculating initial posterior
     accepted_step = 0
     accepted_tot  = 0
     nparms     = self.nparms_ensemble
@@ -1855,19 +2309,10 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     for p in range(0,nparms):
         #Starting step size - reduced for more conservative proposals
         #parm_step[p] = 2.4**2/nparms * (model.pmax[p]-model.pmin[p])
-        base_step = 0.02 * (self.ensemble_pmax[p]-self.ensemble_pmin[p])  # Reduced from 5% to 2%
+        base_step = 0.05 * (self.ensemble_pmax[p]-self.ensemble_pmin[p])  # 5% for better initial mixing
         
-        # Parameter-specific scaling for sensitive parameters
-        if hasattr(self, 'ensemble_parms') and p < len(self.ensemble_parms):
-            parm_name = self.ensemble_parms[p].lower()
-            if any(x in parm_name for x in ['vcmax', 'jmax', 'kmax']):
-                parm_step[p] = base_step * 0.5  # Extra reduction for photosynthesis
-            elif any(x in parm_name for x in ['q10', 'froz']):
-                parm_step[p] = base_step * 0.3  # Extra reduction for temperature sensitivity
-            else:
-                parm_step[p] = base_step
-        else:
-            parm_step[p] = base_step
+        # Conservative initial step size (will be adapted based on sensitivity analysis if available)
+        parm_step[p] = base_step
         #parms[p] = np.random.uniform(parms[p]-parm_step[p],parms[p]+parm_step[p],1)
         #parms[p] = self.pdef[p]
         #parms_sens = np.copy(parms)
@@ -1881,7 +2326,55 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     for i in range(0,nparms):
         mycov[i,i] = parm_step[i]**2
 
-    parm_last = parms
+    # ======================================================================
+    # Preconditioning Phase: Quick scale estimation for better initial mixing
+    # ======================================================================
+    print("Running preconditioning phase for better initial proposals...")
+    precon_samples = min(100, burnsteps * nburn // 10)  # 10% of burn-in for preconditioning
+    precon_chain = np.zeros((nparms, precon_samples))
+    precon_accepted = 0
+    
+    current_params = parms.copy()
+    current_post, _ = calc_posterior(self, current_params, myvars)
+    
+    for precon_i in range(precon_samples):
+        # Simple random walk with current covariance
+        proposal = np.random.multivariate_normal(current_params, mycov)
+        
+        # Apply bounds
+        proposal = np.clip(proposal, self.ensemble_pmin, self.ensemble_pmax)
+        
+        prop_post, _ = calc_posterior(self, proposal, myvars)
+        
+        if prop_post - current_post >= np.log(random.uniform(0, 1)):
+            current_params = proposal
+            current_post = prop_post
+            precon_accepted += 1
+        
+        precon_chain[:, precon_i] = current_params
+    
+    # Update initial covariance based on preconditioning
+    if precon_accepted > 10:  # Need some accepted samples
+        precon_cov = np.cov(precon_chain)
+        precon_accept_rate = precon_accepted / precon_samples
+        
+        # Scale the covariance based on acceptance rate
+        if precon_accept_rate < 0.1:
+            scale_factor = 0.5
+        elif precon_accept_rate > 0.7:
+            scale_factor = 1.5
+        else:
+            scale_factor = 1.0
+            
+        # Blend preconditioning covariance with initial
+        mycov = 0.7 * (scale_factor * precon_cov) + 0.3 * mycov
+        
+        print(f"Preconditioning: {precon_accepted}/{precon_samples} accepted ({precon_accept_rate:.1%})")
+        print(f"Applied scale factor: {scale_factor:.2f}")
+    else:
+        print("Preconditioning: insufficient accepted samples, using original covariance")
+
+    parm_last = current_params  # Start from best preconditioning point
     scalefac = 1.0
 
     # Debug initial state
@@ -1889,9 +2382,41 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     print(f"DEBUG: Initial parameters: {parms}")
     print(f"DEBUG: Parameter bounds - min: {self.ensemble_pmin}, max: {self.ensemble_pmax}")
     
-    # Check initial posterior
+    # Check initial posterior and ensure it's finite
     initial_post, initial_output = calc_posterior(self, parms, myvars)
     print(f"DEBUG: Initial posterior: {initial_post}")
+    
+    # If initial posterior is invalid, try to find a better starting point
+    if initial_post <= -9999999 or not np.isfinite(initial_post):
+        print("WARNING: Initial posterior is invalid, searching for better starting point...")
+        best_post = initial_post
+        best_parms = parms.copy()
+        
+        for attempt in range(50):  # Try 50 random points
+            # Random point within bounds
+            trial_parms = np.random.uniform(self.ensemble_pmin, self.ensemble_pmax)
+            trial_post, trial_output = calc_posterior(self, trial_parms, myvars)
+            
+            if trial_post > best_post and np.isfinite(trial_post):
+                best_post = trial_post
+                best_parms = trial_parms.copy()
+                if trial_post > -9999999:
+                    break
+        
+        if best_post > initial_post:
+            print(f"Found better starting point: {best_post:.3f} vs {initial_post:.3f}")
+            parms = best_parms
+            initial_post, initial_output = calc_posterior(self, parms, myvars)
+        else:
+            print("WARNING: Could not find good starting point, proceeding with original")
+    
+    # Initialize best parameters and posterior
+    post_best = initial_post
+    post_last = initial_post  # Initialize post_last with initial posterior
+    parms_best = parms.copy()
+    output_best = initial_output.copy() if initial_output else {}
+    thisoutput_last = initial_output.copy() if initial_output else {}
+    
     if hasattr(self, 'obs'):
         print(f"DEBUG: Available observations: {list(self.obs.keys())}")
         for var in self.obs.keys():
@@ -1934,13 +2459,27 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     else:
         print("DEBUG: No observations found (self.obs not defined)")
 
+    # Initialize MCMC enhancement variables
+    print(f"MCMC Enhanced Sampling Configuration:")
+    print(f"  Adaptive proposals: {'ENABLED' if enable_adaptive else 'DISABLED'}")
+    print(f"  Delayed rejection: {'ENABLED' if enable_delayed_rejection else 'DISABLED'}")
+    print(f"  Block sampling: {'ENABLED' if enable_block_sampling else 'DISABLED'}")
+    print(f"  Parallel tempering: {'ENABLED' if enable_parallel_tempering else 'DISABLED'}")
+    print(f"  Auto convergence: {'ENABLED' if enable_auto_convergence else 'DISABLED'}")
+    
     # Initialize adaptive MCMC tracking variables (only if enabled)
     if enable_adaptive:
-        print(f"MCMC: Adaptive proposals ENABLED")
-        adaptation_interval = nburn  # Adapt every nburn steps during burn-in
+        # More frequent adaptation for better convergence
+        adaptation_interval = max(50, min(nburn // 10, 200))  # Adapt every 50-200 steps
+        warmup_phase = int(burnsteps * nburn * 0.2)  # First 20% is aggressive warmup
         adaptation_history = []
         last_adaptation_step = 0
         proposal_method = 'multivariate_normal'  # Start with standard method
+        
+        # Momentum-like adaptation tracking
+        momentum_decay = 0.9
+        momentum_vector = np.zeros(nparms)
+        previous_gradient_estimate = np.zeros(nparms)
         
         # Check for sensitivity analysis results
         sensitivity_info = extract_sensitivity_info(self, myvars)
@@ -1960,27 +2499,55 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
             print(f"      Consider running GSA first for optimal MCMC tuning")
             sensitivity_info = None
     else:
-        print(f"MCMC: Using standard (non-adaptive) proposals")
         adaptation_history = []
         proposal_method = 'multivariate_normal'
         sensitivity_info = None
     
+    # Initialize advanced sampling tracking
+    if enable_delayed_rejection:
+        delayed_rejection_stats = {'attempts': 0, 'stage1_accepts': 0, 'stage2_accepts': 0}
+    
+    if enable_block_sampling:
+        correlation_blocks = None  # Will be computed dynamically
+        block_sampling_stats = {'attempts': 0, 'blocks_accepted': 0, 'total_blocks': 0}
+    
+    if enable_parallel_tempering:
+        temp_stats = {'temp_steps': 0, 'temp_accepts': 0}
+        
+    if enable_auto_convergence:
+        convergence_check_interval = max(min(nburn, 500), 200)  # More frequent convergence checks
+        last_convergence_check = 0
+        convergence_history = {
+            'iterations': [],
+            'rhat_max': [],
+            'ess_min': [],
+            'converged': []
+        }
+    
     for i in range(0,nevals):
         #update proposal step size using enhanced adaptive methods
-        if enable_adaptive and (i > 0 and (i % adaptation_interval) == 0 and i < burnsteps*nburn):
-            acc_ratio = float(accepted_step) / adaptation_interval
+        # Dynamic adaptation frequency: more frequent during warmup
+        is_warmup = i < warmup_phase if enable_adaptive else False
+        current_adapt_interval = adaptation_interval // 2 if is_warmup else adaptation_interval
+        
+        if enable_adaptive and (i > 0 and (i % current_adapt_interval) == 0 and i < burnsteps*nburn):
+            acc_ratio = float(accepted_step) / current_adapt_interval
             
             # Get recent chain samples for adaptation
             recent_samples = chain_burn[0:nparms, max(0, accepted_tot-adaptation_interval):accepted_tot]
             
             # Apply enhanced adaptive metropolis update
             if recent_samples.shape[1] > nparms:  # Need enough samples
+                # More aggressive adaptation during warmup
+                warmup_adapt_rate = 0.2 if is_warmup else 0.1
+                warmup_target_accept = 0.35 if is_warmup else 0.3
+                
                 new_cov, adaptation_info = adaptive_metropolis_update(
                     current_cov=mycov,
                     chain_samples=recent_samples, 
                     accept_rate=acc_ratio,
-                    target_accept=0.234,  # Optimal for multivariate normal
-                    adaptation_rate=0.05,
+                    target_accept=warmup_target_accept,
+                    adaptation_rate=warmup_adapt_rate,
                     min_samples=max(50, nparms*2)
                 )
                 
@@ -2004,10 +2571,14 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                 # Update covariance matrix
                 mycov = new_cov
                 
-                # Apply sensitivity-informed scaling if available
-                if sensitivity_info is not None and i < burnsteps * nburn * 0.7:  # Only during early burn-in
+                # Apply sensitivity-informed scaling if available (throughout burn-in)
+                if sensitivity_info is not None and i < burnsteps * nburn:  # Throughout burn-in phase
+                    # Dynamic adaptation factor: stronger early, gentler later
+                    burnin_progress = i / (burnsteps * nburn)
+                    dynamic_adapt_factor = 0.15 * (1 - burnin_progress) + 0.05 * burnin_progress
+                    
                     mycov, sens_scaling_info = apply_sensitivity_informed_scaling(
-                        self, mycov, sensitivity_info, adaptation_factor=0.1)  # Gentle blending
+                        self, mycov, sensitivity_info, adaptation_factor=dynamic_adapt_factor)
                     
                     if sens_scaling_info['applied'] and i <= 2 * nburn:  # Print occasionally
                         n_high = len(sens_scaling_info['high_sens_params'])
@@ -2087,58 +2658,223 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                 plt.savefig(UQ_output+'/MCMC_output/plots/chains/burnin_chain_'+self.ensemble_parms[p]+'.pdf')
                 plt.close(fig) 
     
-        #get proposal step using enhanced method (if adaptive) or standard method
-        if enable_adaptive:
-            parms, proposal_success = enhanced_proposal_step(parm_last, mycov, method=proposal_method)
+        # ======================================================================
+        # Enhanced Proposal Generation and Sampling
+        # ======================================================================
+        
+        # Initialize proposal variables
+        parms = parm_last.copy()
+        post = post_last
+        step_accepted = False
+        step_info = {'method': 'standard', 'details': {}}
+        
+        # Strategy 1: Block sampling (if enabled and blocks exist)
+        if (enable_block_sampling and i > burnsteps * nburn // 4 and 
+            correlation_blocks is not None and len(correlation_blocks) > 1):
             
-            # Fallback to diagonal proposals if enhanced method fails
-            if not proposal_success and proposal_method != 'multivariate_normal':
-                parms, _ = enhanced_proposal_step(parm_last, mycov, method='multivariate_normal')
-                if i < burnsteps * nburn and i % (nburn * 2) == 0:  # Print occasionally during burn-in
-                    print(f"  Iteration {i}: Fallback to standard multivariate normal proposal")
+            # Try block sampling more frequently for better mixing
+            block_probability = 0.5 if i > burnsteps * nburn else 0.3  # Higher rate during sampling
+            if random.random() < block_probability:
+                parms_new, post_new, n_accepted, block_info = block_sampling_step(
+                    self, parm_last, mycov, myvars, post_last, 
+                    correlation_blocks, sensitivity_info)
+                
+                if n_accepted > 0:
+                    parms = parms_new
+                    post = post_new
+                    step_accepted = True
+                    step_info = {'method': 'block_sampling', 'details': block_info}
+                    
+                    if 'block_sampling_stats' in locals():
+                        block_sampling_stats['attempts'] += 1
+                        block_sampling_stats['blocks_accepted'] += n_accepted
+                        block_sampling_stats['total_blocks'] += block_info['blocks_tried']
+        
+        # Strategy 2: Parallel tempering (if enabled)
+        if (not step_accepted and enable_parallel_tempering and 
+            i > burnsteps * nburn // 4):  # After quarter of burn-in
+            
+            parms_new, post_new, temp_info = parallel_tempering_step(
+                self, parm_last, mycov, myvars, post_last)
+            
+            if temp_info['accepted']:
+                parms = parms_new
+                post = post_new
+                step_accepted = True
+                step_info = {'method': 'parallel_tempering', 'details': temp_info}
+                
+                if 'temp_stats' in locals():
+                    temp_stats['temp_steps'] += 1
+                    if temp_info['accepted']:
+                        temp_stats['temp_accepts'] += 1
+        
+        # Strategy 3: Delayed rejection (if enabled and no previous acceptance)
+        if not step_accepted and enable_delayed_rejection:
+            parms_new, post_new, dr_accepted, stage = delayed_rejection_step(
+                self, parm_last, mycov, myvars, post_last,
+                max_stages=2, scale_factors=[1.0, 0.5])
+            
+            if dr_accepted:
+                parms = parms_new
+                post = post_new
+                step_accepted = True
+                step_info = {'method': 'delayed_rejection', 'details': {'stage': stage}}
+                
+                if 'delayed_rejection_stats' in locals():
+                    delayed_rejection_stats['attempts'] += 1
+                    if stage == 1:
+                        delayed_rejection_stats['stage1_accepts'] += 1
+                    elif stage == 2:
+                        delayed_rejection_stats['stage2_accepts'] += 1
+        
+        # Strategy 4: Enhanced adaptive proposals (fallback)
+        if not step_accepted:
+            if enable_adaptive:
+                parms_proposal, proposal_success = enhanced_proposal_step(
+                    parm_last, mycov, method=proposal_method)
+                
+                # Fallback to diagonal proposals if enhanced method fails
+                if not proposal_success and proposal_method != 'multivariate_normal':
+                    parms_proposal, _ = enhanced_proposal_step(
+                        parm_last, mycov, method='multivariate_normal')
+                    if i < burnsteps * nburn and i % (nburn * 2) == 0:
+                        print(f"  Iteration {i}: Fallback to standard multivariate normal proposal")
+            else:
+                # Standard proposal for non-adaptive mode
+                parms_proposal = np.random.multivariate_normal(parm_last, mycov)
+            
+            # Calculate posterior for standard proposal
+            post_proposal, thisoutput = calc_posterior(self, parms_proposal, myvars)
+            
+            # Standard Metropolis acceptance
+            if post_proposal - post_last >= np.log(random.uniform(0, 1)):
+                parms = parms_proposal
+                post = post_proposal
+                step_accepted = True
+                step_info = {'method': 'standard_metropolis', 'details': {}}
+            else:
+                # Proposal rejected, keep current values
+                parms = parm_last
+                post = post_last
+                step_info = {'method': 'rejected', 'details': {}}
+        
+        # Ensure we have output for this step
+        if step_accepted:
+            if 'thisoutput' not in locals():
+                _, thisoutput = calc_posterior(self, parms, myvars)
         else:
-            # Standard proposal for non-adaptive mode
-            parms = np.random.multivariate_normal(parm_last, mycov)
-   
-        #------- run the model and calculate log likelihood -------------------
-        thisoutput={}
-        post, thisoutput = calc_posterior(self, parms, myvars)
+            thisoutput = thisoutput_last.copy() if 'thisoutput_last' in locals() else {}
+        
+        # ===============================================================
+        # Process acceptance and update chains
+        # ===============================================================
+        if step_accepted:
+            # Update chain tracking
+            post_last = post
+            accepted_tot = accepted_tot + 1
+            accepted_step = accepted_step + 1
+            chain_prop[0:nparms, accepted_tot] = parms - parm_last
+            chain_burn[0:nparms, accepted_tot] = parms
+            parm_last = parms
+            thisoutput_last = thisoutput.copy()
+            
+            # Track best solution
+            if post > post_best:
+                post_best = post
+                parms_best = parms.copy()
+                output_best = thisoutput
+                print(f"New best posterior at iteration {i}: {post_best:.3f}")
+        
+        # ===============================================================
+        # Update adaptation statistics and covariance
+        # ===============================================================
+        if enable_adaptive and i > burnsteps // 4:  # Start adaptation after 25% of burn-in
+            # Update running statistics for covariance adaptation
+            if 'chain_mean' in locals():
+                chain_mean = (chain_mean * adaptation_count + parms) / (adaptation_count + 1)
+                adaptation_count += 1
+                
+                # Update covariance every 50 steps during burn-in
+                if i < burnsteps * nburn and i % 50 == 0 and adaptation_count > 10:
+                    chain_recent = chain[0:nparms, max(0, i-500):i+1]
+                    if chain_recent.shape[1] > nparms:
+                        # Apply adaptive Metropolis update
+                        mycov = adaptive_metropolis_update(
+                            mycov, chain_recent, scaling_factor=scaling_factor,
+                            adaptation_factor=0.1)
+                        
+                        # Apply sensitivity-informed scaling if available
+                        if sensitivity_info is not None:
+                            mycov, _ = apply_sensitivity_informed_scaling(
+                                self, mycov, sensitivity_info, adaptation_factor=0.05)
+                        
+                        # Monitor correlation issues and adjust proposal method
+                        correlation_issues = detect_correlation_issues(mycov)
+                        if correlation_issues['high_condition_number']:
+                            proposal_method = 'eigendecomp'
+                        elif correlation_issues['near_singular']:
+                            proposal_method = 'diagonal'
+                        else:
+                            proposal_method = 'cholesky'
+                        
+                        if i % 200 == 0:
+                            print(f"  Adaptation at iteration {i}: method={proposal_method}, "
+                                  f"condition={np.linalg.cond(mycov):.2e}")
+            else:
+                chain_mean = parms.copy()
+                adaptation_count = 1
+        
+        # ===============================================================
+        # Convergence monitoring and auto-stopping (if enabled)
+        # ===============================================================
+        if (enable_auto_stopping and i > burnsteps * nburn and 
+            i % convergence_check_interval == 0):
+            
+            # Check convergence every specified interval
+            chain_recent = chain[0:nparms, int(nburn * burnsteps):i+1]
+            if chain_recent.shape[1] > 4 * nparms:  # Need sufficient samples
+                
+                convergence_result = convergence_diagnostics(chain_recent)
+                
+                # Store convergence history
+                convergence_history['iterations'].append(i)
+                convergence_history['rhat_max'].append(convergence_result['rhat_max'])
+                convergence_history['ess_min'].append(convergence_result['ess_min'])
+                convergence_history['converged'].append(convergence_result['converged'])
+                
+                # Check auto-stopping criterion
+                if auto_stopping_criterion(convergence_result, min_ess=100):
+                    print(f"\n🎯 CONVERGENCE ACHIEVED at iteration {i}!")
+                    print(f"   Max R-hat: {convergence_result['rhat_max']:.4f}")
+                    print(f"   Min ESS: {convergence_result['ess_min']:.1f}")
+                    print(f"   Stopping early (requested {nevals} iterations)")
+                    
+                    # Truncate arrays to actual length
+                    nevals = i + 1
+                    break
+                elif i % (convergence_check_interval * 5) == 0:
+                    print(f"  Convergence check at iteration {i}: "
+                          f"R-hat={convergence_result['rhat_max']:.4f}, "
+                          f"ESS={convergence_result['ess_min']:.1f}")
         
         # Debug every 1000 iterations
         if i % 1000 == 0:
-            print(f"DEBUG: Iteration {i}, current posterior: {post}, best so far: {post_best}")
-            
-        #determine whether proposal step is accepted
-        if ( (post - post_last < np.log(random.uniform(0,1))) ):
-            #if not accepted, go back to previous step
-            for j in range(0,nparms):
-                parms[j] = parm_last[j]
-        else:
-            #proposal step is accepted
-            post_last = post
-            accepted_tot = accepted_tot+1
-            accepted_step = accepted_step+1
-            chain_prop[0:nparms,accepted_tot] = parms-parm_last
-            chain_burn[0:nparms,accepted_tot] = parms
-            parm_last = parms
-            thisoutput_last = thisoutput.copy()
-            #keep track of best solution so far
-            if (post > post_best):
-                post_best = post
-                parms_best = parms.copy()  # Use copy to avoid reference issues
-                print(f"DEBUG: New best posterior found at iteration {i}: {post_best}")
-                #print(post_best)
-                output_best = thisoutput
+            accept_rate = accepted_tot / (i + 1)
+            print(f"Iteration {i}: posterior={post:.3f}, acceptance={accept_rate:.3f}, "
+                  f"method={step_info['method']}")
 
         #populate the chain matrix
         for j in range(0,nparms):
             chain[j][i] = parms[j]
         chain[nparms][i] = post_last
         for v in myvars:
-            if (post > -9000000):
+            if (post_last > -9000000) and v in thisoutput:
               output[v][:,i] = thisoutput[v][:]
-            else:
+            elif v in thisoutput_last:
               output[v][:,i] = thisoutput_last[v][:]
+            else:
+              # Handle case where neither thisoutput nor thisoutput_last has this variable
+              output[v][:,i] = np.zeros(self.nobs[v])  # or some default value
         #if (i % 1000 == 0):
         #    print(' -- '+str(i)+' --\n')
 
@@ -2153,16 +2889,8 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     np.savetxt(UQ_output+'/MCMC_output/MCMC_chain.txt', np.transpose(chain_afterburn))
     #Print out some statistics
     
-    # Debug: Check if parms_best is defined
-    try:
-        print(f"DEBUG: parms_best exists with length {len(parms_best)}")
-        print(f"DEBUG: parms_best = {parms_best}")
-    except NameError:
-        print("ERROR: parms_best is not defined!")
-        print("This suggests no MCMC iterations improved upon the initial posterior")
-        print("Initializing parms_best with starting parameters...")
-        parms_best = np.copy(parms)
-        print(f"DEBUG: Initialized parms_best = {parms_best}")
+    # Debug: parms_best is now properly initialized at start of function
+    print(f"DEBUG: parms_best final values: {parms_best}")
     
     parm_best=open(UQ_output+'/MCMC_output/parms_best.txt','w')
     for p in range(0,len(parms_best)):
@@ -2611,6 +3339,187 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
             print(f"  {i}. {suggestion}")
     
     print("=" * 60)
+    
+    # ======================================================================
+    # Generate comprehensive advanced MCMC diagnostics report
+    # ======================================================================
+    print("Generating comprehensive advanced MCMC diagnostics report...")
+    
+    import time
+    
+    with open(UQ_output + '/MCMC_output/advanced_mcmc_report.txt', 'w') as f:
+        f.write("# Advanced MCMC Diagnostics Report\n")
+        f.write("# Generated from enhanced custom MCMC implementation\n")
+        f.write(f"# Simulation: {self.casename}\n")
+        f.write(f"# Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+        
+        # ============== MCMC Configuration ================
+        f.write("## MCMC Configuration\n")
+        f.write(f"Total iterations: {nevals}\n")
+        f.write(f"Burn-in fraction: {nburn}\n")
+        f.write(f"Burn-in steps: {burnsteps}\n")
+        f.write(f"Total burn-in samples: {int(nburn * burnsteps)}\n")
+        f.write(f"Post-burn-in samples: {n_samples_afterburn}\n")
+        f.write(f"Number of parameters: {nparms}\n")
+        f.write(f"Overall acceptance rate: {float(accepted_tot)/nevals:.3f}\n\n")
+        
+        # ============== Enhancement Features Used ================
+        f.write("## Enhancement Features\n")
+        f.write(f"Adaptive proposals: {'Enabled' if enable_adaptive else 'Disabled'}\n")
+        f.write(f"Sensitivity-informed scaling: {'Available' if sensitivity_info is not None else 'Not available'}\n")
+        f.write(f"Block sampling: {'Enabled' if enable_block_sampling else 'Disabled'}\n")
+        f.write(f"Delayed rejection: {'Enabled' if enable_delayed_rejection else 'Disabled'}\n")
+        f.write(f"Parallel tempering: {'Enabled' if enable_parallel_tempering else 'Disabled'}\n")
+        f.write(f"Auto-stopping: {'Enabled' if enable_auto_stopping else 'Disabled'}\n\n")
+        
+        # ============== Advanced Technique Statistics ================
+        if 'block_sampling_stats' in locals() and block_sampling_stats['attempts'] > 0:
+            f.write("## Block Sampling Statistics\n")
+            f.write(f"Block sampling attempts: {block_sampling_stats['attempts']}\n")
+            f.write(f"Blocks accepted: {block_sampling_stats['blocks_accepted']}\n")
+            f.write(f"Total blocks tried: {block_sampling_stats['total_blocks']}\n")
+            block_accept_rate = block_sampling_stats['blocks_accepted'] / block_sampling_stats['total_blocks']
+            f.write(f"Block acceptance rate: {block_accept_rate:.3f}\n\n")
+        
+        if 'delayed_rejection_stats' in locals() and delayed_rejection_stats['attempts'] > 0:
+            f.write("## Delayed Rejection Statistics\n")
+            f.write(f"Delayed rejection attempts: {delayed_rejection_stats['attempts']}\n")
+            f.write(f"Stage 1 acceptances: {delayed_rejection_stats['stage1_accepts']}\n")
+            f.write(f"Stage 2 acceptances: {delayed_rejection_stats['stage2_accepts']}\n")
+            dr_success_rate = (delayed_rejection_stats['stage1_accepts'] + 
+                             delayed_rejection_stats['stage2_accepts']) / delayed_rejection_stats['attempts']
+            f.write(f"Delayed rejection success rate: {dr_success_rate:.3f}\n\n")
+        
+        if 'temp_stats' in locals() and temp_stats['temp_steps'] > 0:
+            f.write("## Parallel Tempering Statistics\n")
+            f.write(f"Temperature steps attempted: {temp_stats['temp_steps']}\n")
+            f.write(f"Temperature steps accepted: {temp_stats['temp_accepts']}\n")
+            temp_accept_rate = temp_stats['temp_accepts'] / temp_stats['temp_steps']
+            f.write(f"Temperature acceptance rate: {temp_accept_rate:.3f}\n\n")
+        
+        # ============== Sensitivity Analysis Integration ================
+        if sensitivity_info is not None:
+            f.write("## Sensitivity Analysis Integration\n")
+            f.write("Sensitivity-informed scaling was applied to proposal covariance\n")
+            
+            # Get parameter sensitivity rankings
+            param_importance = sensitivity_info.get('param_importance', {})
+            if param_importance:
+                high_sens_params = [p for p, info in param_importance.items() 
+                                  if info['total_sensitivity'] > 0.05]
+                low_sens_params = [p for p, info in param_importance.items() 
+                                 if info['total_sensitivity'] < 0.01]
+                
+                f.write(f"High-sensitivity parameters ({len(high_sens_params)}): {', '.join(high_sens_params)}\n")
+                f.write(f"Low-sensitivity parameters ({len(low_sens_params)}): {', '.join(low_sens_params)}\n")
+                
+                # Parameter interaction information
+                interactions = sensitivity_info.get('interactions', [])
+                strong_interactions = [pair for pair in interactions if len(pair) > 2 and pair[2] > 0.1]
+                if strong_interactions:
+                    f.write(f"Strong parameter interactions detected: {len(strong_interactions)}\n")
+                    for p1, p2, strength in strong_interactions[:5]:  # Show top 5
+                        f.write(f"  {p1} ↔ {p2}: {strength:.3f}\n")
+            f.write("\n")
+        
+        # ============== Convergence Information ================
+        if 'convergence_history' in locals():
+            f.write("## Convergence Monitoring\n")
+            f.write("Convergence was monitored using Gelman-Rubin R-hat and ESS diagnostics\n")
+            f.write(f"Convergence checks performed: {len(convergence_history['iterations'])}\n")
+            
+            if convergence_history['rhat_max']:
+                final_rhat = convergence_history['rhat_max'][-1]
+                final_ess = convergence_history['ess_min'][-1]
+                f.write(f"Final R-hat (max across parameters): {final_rhat:.4f}\n")
+                f.write(f"Final ESS (min across parameters): {final_ess:.1f}\n")
+                
+                converged_checks = sum(convergence_history['converged'])
+                f.write(f"Convergence achieved in {converged_checks}/{len(convergence_history['converged'])} checks\n")
+            
+            # Check if early stopping occurred
+            if nevals < len(convergence_history.get('iterations', [])):
+                f.write("Early stopping was triggered due to convergence\n")
+            f.write("\n")
+        
+        # ============== ESS Summary ================
+        f.write("## Effective Sample Size Summary\n")
+        f.write(f"Min ESS: {ess_stats['min']:.2f}\n")
+        f.write(f"Max ESS: {ess_stats['max']:.2f}\n")
+        f.write(f"Mean ESS: {ess_stats['mean']:.2f}\n")
+        f.write(f"Median ESS: {ess_stats['median']:.2f}\n")
+        f.write(f"Overall sampling efficiency: {ess_stats['mean']/n_samples_afterburn:.1%}\n\n")
+        
+        # ============== Final Recommendations ================
+        f.write("## Recommendations for Future Runs\n")
+        
+        # Acceptance rate recommendations
+        overall_accept_rate = float(accepted_tot) / nevals
+        if overall_accept_rate < 0.15:
+            f.write("- Acceptance rate is low (<15%). Consider smaller proposal steps or better initial covariance\n")
+        elif overall_accept_rate > 0.7:
+            f.write("- Acceptance rate is high (>70%). Consider larger proposal steps for faster mixing\n")
+        else:
+            f.write("- Acceptance rate is in good range (15-70%)\n")
+        
+        # ESS recommendations
+        min_ess = ess_stats['min']
+        if min_ess < 50:
+            f.write("- Some parameters have very low ESS (<50). Consider longer runs or better proposals\n")
+        elif min_ess > 200:
+            f.write("- All parameters have good ESS (>200). Current run length is sufficient\n")
+        
+        # Enhancement recommendations
+        if not enable_adaptive:
+            f.write("- Consider enabling adaptive proposals for better performance\n")
+        if sensitivity_info is None:
+            f.write("- Consider running Global Sensitivity Analysis first to inform MCMC proposals\n")
+        if not enable_auto_stopping:
+            f.write("- Consider enabling auto-stopping to avoid unnecessary long runs\n")
+        
+        f.write("\n# End of Advanced MCMC Diagnostics Report\n")
+    
+    print(f"✅ Comprehensive MCMC report saved to: {UQ_output}/MCMC_output/advanced_mcmc_report.txt")
+    
+    # ======================================================================
+    # Save adaptation history if available
+    # ======================================================================
+    if 'convergence_history' in locals() and convergence_history['iterations']:
+        import pickle
+        
+        adaptation_data = {
+            'convergence_history': convergence_history,
+            'ess_results': ess_results,
+            'tau_results': tau_results,
+            'ess_stats': ess_stats,
+            'mcmc_config': {
+                'nevals': nevals,
+                'nburn': nburn,
+                'burnsteps': burnsteps,
+                'nparms': nparms,
+                'acceptance_rate': float(accepted_tot) / nevals,
+                'enable_adaptive': enable_adaptive,
+                'enable_block_sampling': enable_block_sampling,
+                'enable_delayed_rejection': enable_delayed_rejection,
+                'enable_parallel_tempering': enable_parallel_tempering,
+                'enable_auto_stopping': enable_auto_stopping
+            }
+        }
+        
+        # Add technique-specific stats if available
+        if 'block_sampling_stats' in locals():
+            adaptation_data['block_sampling_stats'] = block_sampling_stats
+        if 'delayed_rejection_stats' in locals():
+            adaptation_data['delayed_rejection_stats'] = delayed_rejection_stats
+        if 'temp_stats' in locals():
+            adaptation_data['temp_stats'] = temp_stats
+        if sensitivity_info is not None:
+            adaptation_data['sensitivity_info'] = sensitivity_info
+        
+        with open(UQ_output + '/MCMC_output/adaptation_history.pkl', 'wb') as f:
+            pickle.dump(adaptation_data, f)
+        
+        print(f"✅ Adaptation history saved to: {UQ_output}/MCMC_output/adaptation_history.pkl")
     
     return parms_best
 
