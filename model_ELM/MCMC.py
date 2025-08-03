@@ -1364,6 +1364,11 @@ def create_sensitivity_based_covariance(self, sensitivity_info, base_covariance=
     if base_covariance is None:
         base_covariance = np.eye(n_params) * 0.01  # Default small diagonal matrix
     
+    # Validate that base_covariance is a numpy array
+    if not isinstance(base_covariance, np.ndarray):
+        raise TypeError(f"base_covariance must be a numpy array, got {type(base_covariance)}. "
+                       f"This suggests a tuple unpacking issue in the calling function.")
+    
     # Calculate scaling factors based on sensitivity
     total_sens = sensitivity_info['aggregated_total']
     max_sens = np.max(total_sens)
@@ -2802,7 +2807,7 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                         current_accept_rate = accepted_tot / (i + 1) if i > 0 else 0.0
                         
                         # Apply adaptive Metropolis update
-                        mycov = adaptive_metropolis_update(
+                        mycov, adaptation_info = adaptive_metropolis_update(
                             mycov, chain_recent, accept_rate=current_accept_rate,
                             adaptation_rate=0.1)
                         
