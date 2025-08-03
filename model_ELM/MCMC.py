@@ -2684,11 +2684,13 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     
     
         if (i == burnsteps*nburn):
-            #Parameter chain plots
+            #Parameter chain plots (burn-in period)
             for p in range(0,nparms):
                 fig = plt.figure()
-                xchain = np.cumsum(np.ones(int(nburn*burnsteps)))
-                plt.plot(xchain, chain[p,0:int(nburn*burnsteps)])
+                burnin_end = int(nburn*burnsteps)
+                chain_burnin = chain[p, 0:burnin_end]
+                xchain = np.arange(1, len(chain_burnin) + 1)  # Match actual chain length
+                plt.plot(xchain, chain_burnin)
                 plt.xlabel('Evaluations')
                 plt.ylabel(self.ensemble_parms[p])
                 if not os.path.exists(UQ_output+'/MCMC_output/plots/chains'):
@@ -2904,7 +2906,14 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                     print(f"   Stopping early (requested {nevals} iterations)")
                     
                     # Truncate arrays to actual length
+                    original_nevals = nevals
                     nevals = i + 1
+                    
+                    # Truncate chain and output arrays to actual used length
+                    chain = chain[:, :nevals]
+                    for v in myvars:
+                        output[v] = output[v][:, :nevals]
+                    
                     break
                 elif i % (convergence_check_interval * 5) == 0:
                     print(f"  Convergence check at iteration {i}: "
@@ -2972,8 +2981,21 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     #Parameter chain plots
     for p in range(0,nparms):
         fig = plt.figure()
-        xchain = np.cumsum(np.ones(nevals-int(nburn*burnsteps)))
-        plt.plot(xchain, chain_afterburn[p,:])
+        # Use actual chain_afterburn length to avoid dimension mismatch
+        actual_length = chain_afterburn.shape[1]
+        
+        # Check if we have sufficient post-burn-in samples
+        if actual_length <= 0:
+            print(f"Warning: No post-burn-in samples available for plotting parameter {p}")
+            plt.text(0.5, 0.5, 'Insufficient samples\nafter burn-in', 
+                    ha='center', va='center', transform=plt.gca().transAxes)
+            xchain = [1]
+            chain_data = [0]
+        else:
+            xchain = np.arange(1, actual_length + 1)  # 1-indexed for cleaner plots  
+            chain_data = chain_afterburn[p,:]
+            
+        plt.plot(xchain, chain_data)
         plt.xlabel('Evaluations')
         plt.ylabel(self.ensemble_parms[p])
         if not os.path.exists(UQ_output+'/MCMC_output/plots/chains'):
