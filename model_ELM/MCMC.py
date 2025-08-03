@@ -2778,8 +2778,11 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
             post_last = post
             accepted_tot = accepted_tot + 1
             accepted_step = accepted_step + 1
-            chain_prop[0:nparms, accepted_tot] = parms - parm_last
-            chain_burn[0:nparms, accepted_tot] = parms
+            
+            # Bounds check for chain arrays
+            if accepted_tot < chain_prop.shape[1] and accepted_tot < chain_burn.shape[1]:
+                chain_prop[0:nparms, accepted_tot] = parms - parm_last
+                chain_burn[0:nparms, accepted_tot] = parms
             parm_last = parms
             thisoutput_last = thisoutput.copy()
             
@@ -2795,13 +2798,17 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
         # ===============================================================
         if enable_adaptive and i > burnsteps // 4:  # Start adaptation after 25% of burn-in
             # Update running statistics for covariance adaptation
-            if 'chain_mean' in locals():
+            if 'chain_mean' not in locals():
+                chain_mean = parms.copy()
+                adaptation_count = 1
+            else:
                 chain_mean = (chain_mean * adaptation_count + parms) / (adaptation_count + 1)
                 adaptation_count += 1
                 
                 # Update covariance every 50 steps during burn-in
                 if i < burnsteps * nburn and i % 50 == 0 and adaptation_count > 10:
-                    chain_recent = chain[0:nparms, max(0, i-500):i+1]
+                    end_idx = min(i+1, chain.shape[1])
+                    chain_recent = chain[0:nparms, max(0, i-500):end_idx]
                     if chain_recent.shape[1] > nparms:
                         # Calculate current acceptance rate for adaptive update
                         current_accept_rate = accepted_tot / (i + 1) if i > 0 else 0.0
@@ -2817,20 +2824,24 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                                 self, mycov, sensitivity_info, adaptation_factor=0.05)
                         
                         # Monitor correlation issues and adjust proposal method
-                        correlation_issues = detect_correlation_issues(mycov)
-                        if correlation_issues['high_condition_number']:
-                            proposal_method = 'eigendecomp'
-                        elif correlation_issues['near_singular']:
-                            proposal_method = 'diagonal'
+                        param_names = [self.ensemble_parms[p] if p < len(self.ensemble_parms) 
+                                     else f'param_{p}' for p in range(nparms)]
+                        correlation_issues = detect_correlation_issues(chain_recent, param_names)
+                        condition_num = correlation_issues.get('condition_number', 1.0)
+                        
+                        if correlation_issues['ill_conditioned']:
+                            if condition_num > 1e12:  # Extremely ill-conditioned
+                                proposal_method = 'diagonal'
+                            else:  # Moderately ill-conditioned
+                                proposal_method = 'eigendecomp'
+                        elif len(correlation_issues['high_correlations']) > 0:
+                            proposal_method = 'cholesky'  # Good for correlated parameters
                         else:
-                            proposal_method = 'cholesky'
+                            proposal_method = 'cholesky'  # Default stable method
                         
                         if i % 200 == 0:
                             print(f"  Adaptation at iteration {i}: method={proposal_method}, "
                                   f"condition={np.linalg.cond(mycov):.2e}")
-            else:
-                chain_mean = parms.copy()
-                adaptation_count = 1
         
         # ===============================================================
         # Convergence monitoring and auto-stopping (if enabled)
@@ -2839,10 +2850,12 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
             i % convergence_check_interval == 0):
             
             # Check convergence every specified interval
-            chain_recent = chain[0:nparms, int(nburn * burnsteps):i+1]
+            start_idx = int(nburn * burnsteps)
+            end_idx = min(i+1, chain.shape[1])
+            chain_recent = chain[0:nparms, start_idx:end_idx]
             if chain_recent.shape[1] > 4 * nparms:  # Need sufficient samples
                 
-                convergence_result = convergence_diagnostics(chain_recent)
+                convergence_result = self.convergence_diagnostics(chain_recent)
                 
                 # Store convergence history
                 convergence_history['iterations'].append(i)
@@ -2851,7 +2864,7 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                 convergence_history['converged'].append(convergence_result['converged'])
                 
                 # Check auto-stopping criterion
-                if auto_stopping_criterion(convergence_result, min_ess=100):
+                if self.auto_stopping_criterion(convergence_result, min_ess=100):
                     print(f"\n🎯 CONVERGENCE ACHIEVED at iteration {i}!")
                     print(f"   Max R-hat: {convergence_result['rhat_max']:.4f}")
                     print(f"   Min ESS: {convergence_result['ess_min']:.1f}")
@@ -2878,7 +2891,7 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
         for v in myvars:
             if (post_last > -9000000) and v in thisoutput:
               output[v][:,i] = thisoutput[v][:]
-            elif v in thisoutput_last:
+            elif 'thisoutput_last' in locals() and v in thisoutput_last:
               output[v][:,i] = thisoutput_last[v][:]
             else:
               # Handle case where neither thisoutput nor thisoutput_last has this variable
