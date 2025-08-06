@@ -1943,19 +1943,39 @@ def auto_stopping_criterion(self, diagnostics, min_ess=100, min_samples=1000):
     if diagnostics['n_samples'] < min_samples:
         return False, "Insufficient samples"
     
-    # Check convergence
-    all_converged = all(diagnostics['converged'].values()) if diagnostics['converged'] else False
+    # Check individual parameter convergence
+    if not diagnostics['converged']:
+        return False, "No convergence data available"
     
-    if not all_converged:
-        return False, "Not converged (R-hat > threshold)"
+    converged_params = [name for name, converged in diagnostics['converged'].items() if converged]
+    unconverged_params = [name for name, converged in diagnostics['converged'].items() if not converged]
     
-    # Check ESS
-    min_ess_achieved = min(diagnostics['ess_bulk'].values()) if diagnostics['ess_bulk'] else 0
+    if unconverged_params:
+        rhat_info = []
+        for param in unconverged_params:
+            if param in diagnostics['r_hat']:
+                rhat_val = diagnostics['r_hat'][param]
+                rhat_info.append(f"{param}={rhat_val:.3f}")
+        
+        rhat_details = f" (R-hat: {', '.join(rhat_info)})" if rhat_info else ""
+        return False, f"{len(unconverged_params)} parameters not converged{rhat_details}"
     
-    if min_ess_achieved < min_ess:
-        return False, f"Insufficient ESS (min: {min_ess_achieved:.1f})"
+    # Check individual parameter ESS
+    if not diagnostics['ess_bulk']:
+        return False, "No ESS data available"
     
-    return True, "Convergence criteria met"
+    insufficient_ess_params = []
+    for param, ess_val in diagnostics['ess_bulk'].items():
+        if ess_val < min_ess:
+            insufficient_ess_params.append(f"{param}={ess_val:.1f}")
+    
+    if insufficient_ess_params:
+        return False, f"Insufficient ESS for {len(insufficient_ess_params)} parameters: {', '.join(insufficient_ess_params)}"
+    
+    # All individual parameters meet convergence criteria
+    min_ess_achieved = min(diagnostics['ess_bulk'].values())
+    max_rhat = max(diagnostics['r_hat'].values())
+    return True, f"All {len(converged_params)} parameters converged (R-hat≤{max_rhat:.3f}, ESS≥{min_ess_achieved:.1f})"
 
 def calc_posterior(self,parms,myvars):
     """Calculate the posterior (prior and log likelihood)
@@ -2899,10 +2919,23 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                 convergence_history['converged'].append(convergence_result['all_converged'])
                 
                 # Check auto-stopping criterion
-                if self.auto_stopping_criterion(convergence_result, min_ess=100):
+                should_stop, stop_reason = self.auto_stopping_criterion(convergence_result, min_ess=100)
+                if should_stop:
                     print(f"\n🎯 CONVERGENCE ACHIEVED at iteration {i}!")
+                    print(f"   Reason: {stop_reason}")
                     print(f"   Max R-hat: {convergence_result['rhat_max']:.4f}")
                     print(f"   Min ESS: {convergence_result['ess_min']:.1f}")
+                    
+                    # Report individual parameter convergence status
+                    converged_count = sum(convergence_result['converged'].values())
+                    total_params = len(convergence_result['converged'])
+                    print(f"   Parameters converged: {converged_count}/{total_params}")
+                    
+                    # Show any parameters that haven't converged (should be none if we reach this point)
+                    unconverged_params = [name for name, converged in convergence_result['converged'].items() if not converged]
+                    if unconverged_params:
+                        print(f"   ⚠️  Unconverged parameters: {unconverged_params}")
+                    
                     print(f"   Stopping early (requested {nevals} iterations)")
                     
                     # Truncate arrays to actual length
@@ -2916,9 +2949,38 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                     
                     break
                 elif i % (convergence_check_interval * 5) == 0:
+                    # Detailed convergence progress reporting
+                    converged_count = sum(convergence_result['converged'].values())
+                    total_params = len(convergence_result['converged'])
+                    convergence_fraction = converged_count / total_params if total_params > 0 else 0.0
+                    
                     print(f"  Convergence check at iteration {i}: "
-                          f"R-hat={convergence_result['rhat_max']:.4f}, "
-                          f"ESS={convergence_result['ess_min']:.1f}")
+                          f"R-hat max={convergence_result['rhat_max']:.4f}, "
+                          f"ESS min={convergence_result['ess_min']:.1f}")
+                    print(f"    Individual parameters: {converged_count}/{total_params} converged "
+                          f"({convergence_fraction:.1%})")
+                    
+                    # Show worst R-hat parameters if any are unconverged
+                    if converged_count < total_params:
+                        unconverged_rhat = [(name, convergence_result['r_hat'][name]) 
+                                          for name, converged in convergence_result['converged'].items() 
+                                          if not converged and name in convergence_result['r_hat']]
+                        if unconverged_rhat:
+                            # Sort by worst R-hat
+                            unconverged_rhat.sort(key=lambda x: x[1], reverse=True)
+                            worst_params = unconverged_rhat[:3]  # Show up to 3 worst
+                            param_info = ", ".join([f"{name}={rhat:.3f}" for name, rhat in worst_params])
+                            print(f"    Worst R-hat: {param_info}")
+                    
+                    # Show insufficient ESS parameters
+                    insufficient_ess = [(name, ess_val) 
+                                      for name, ess_val in convergence_result['ess_bulk'].items() 
+                                      if ess_val < 100]
+                    if insufficient_ess:
+                        insufficient_ess.sort(key=lambda x: x[1])  # Sort by lowest ESS
+                        worst_ess = insufficient_ess[:3]  # Show up to 3 worst
+                        ess_info = ", ".join([f"{name}={ess:.1f}" for name, ess in worst_ess])
+                        print(f"    Low ESS: {ess_info}")
         
         # Debug every 1000 iterations
         if i % 1000 == 0:
