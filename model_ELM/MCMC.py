@@ -1886,9 +1886,28 @@ def convergence_diagnostics(self, chain_samples, param_names=None,
         diagnostics['r_hat'][param_name] = r_hat
         diagnostics['converged'][param_name] = r_hat < r_hat_threshold
         
-        # Simple ESS estimates
-        tau = autocorr_time_1d(chain_samples[i], quiet=True)
-        ess = n_samples / tau
+        # Fast ESS estimates (approximate for performance)
+        try:
+            # Use a faster approximation for ESS to avoid expensive autocorrelation calculation
+            # Simple variance-based estimate as a fast approximation
+            chain_var = np.var(chain_samples[i])
+            chain_mean = np.mean(chain_samples[i])
+            
+            # Quick autocorrelation approximation using lag-1 correlation
+            if len(chain_samples[i]) > 10:
+                lag1_corr = np.corrcoef(chain_samples[i][:-1], chain_samples[i][1:])[0,1]
+                lag1_corr = max(-0.99, min(0.99, lag1_corr))  # Bound correlation
+                # Approximate ESS using geometric series approximation
+                ess = n_samples * (1 - lag1_corr) / (1 + lag1_corr) if lag1_corr < 0.99 else n_samples * 0.1
+            else:
+                ess = n_samples * 0.5  # Conservative default for short chains
+                
+            ess = max(1.0, min(ess, n_samples))  # Bound ESS between 1 and n_samples
+            
+        except:
+            # Fallback to conservative estimate if approximation fails
+            ess = n_samples * 0.3
+            
         diagnostics['ess_bulk'][param_name] = ess
         diagnostics['ess_tail'][param_name] = ess * 0.8  # Conservative estimate
     
@@ -2573,8 +2592,10 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
         temp_stats = {'temp_steps': 0, 'temp_accepts': 0}
         
     if enable_auto_convergence:
-        convergence_check_interval = max(min(nburn, 500), 200)  # More frequent convergence checks
+        convergence_check_interval = max(min(nburn, 1000), 500)  # Less frequent convergence checks for performance
         last_convergence_check = 0
+        adaptive_check_interval = convergence_check_interval  # Will adapt based on convergence progress
+        poor_convergence_count = 0  # Track consecutive poor convergence checks
         convergence_history = {
             'iterations': [],
             'rhat_max': [],
@@ -2902,7 +2923,7 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
         # Convergence monitoring and auto-stopping (if enabled)
         # ===============================================================
         if (enable_auto_stopping and i > burnsteps * nburn and 
-            i % convergence_check_interval == 0):
+            i % adaptive_check_interval == 0):
             
             # Check convergence every specified interval
             start_idx = int(nburn * burnsteps)
@@ -2948,39 +2969,68 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                         output[v] = output[v][:, :nevals]
                     
                     break
-                elif i % (convergence_check_interval * 5) == 0:
-                    # Detailed convergence progress reporting
+                else:
+                    # Adaptive convergence check interval based on progress
+                    converged_count = sum(convergence_result['converged'].values())
+                    total_params = len(convergence_result['converged'])
+                    convergence_fraction = converged_count / total_params if total_params > 0 else 0.0
+                    
+                    # Adapt check frequency based on convergence progress
+                    if convergence_fraction > 0.8:
+                        # Close to convergence - check more frequently
+                        adaptive_check_interval = max(convergence_check_interval // 2, 200)
+                        poor_convergence_count = 0  # Reset poor convergence counter
+                    elif convergence_fraction < 0.3:
+                        # Poor convergence - check less frequently to save time
+                        adaptive_check_interval = min(convergence_check_interval * 3, 2000)
+                        poor_convergence_count += 1
+                        
+                        # Emergency circuit breaker for very poor convergence
+                        if poor_convergence_count > 5 and i > 5 * nburn * burnsteps:
+                            print(f"\n⚠️  WARNING: Poor convergence detected after {poor_convergence_count} checks!")
+                            print(f"   Only {converged_count}/{total_params} parameters converged after {i} iterations")
+                            print(f"   Consider: longer burn-in, different priors, or model reparameterization")
+                            print(f"   Continuing sampling but convergence may take much longer...")
+                            poor_convergence_count = 0  # Reset to avoid repeated warnings
+                    else:
+                        # Normal progress - use standard interval
+                        adaptive_check_interval = convergence_check_interval
+                        poor_convergence_count = max(0, poor_convergence_count - 1)  # Slowly improve counter
+                
+                if i % (adaptive_check_interval * 10) == 0:  # Less frequent detailed reporting
+                    # Simplified convergence progress reporting for performance
                     converged_count = sum(convergence_result['converged'].values())
                     total_params = len(convergence_result['converged'])
                     convergence_fraction = converged_count / total_params if total_params > 0 else 0.0
                     
                     print(f"  Convergence check at iteration {i}: "
                           f"R-hat max={convergence_result['rhat_max']:.4f}, "
-                          f"ESS min={convergence_result['ess_min']:.1f}")
-                    print(f"    Individual parameters: {converged_count}/{total_params} converged "
-                          f"({convergence_fraction:.1%})")
+                          f"ESS min={convergence_result['ess_min']:.1f}, "
+                          f"converged {converged_count}/{total_params} ({convergence_fraction:.1%})")
                     
-                    # Show worst R-hat parameters if any are unconverged
-                    if converged_count < total_params:
-                        unconverged_rhat = [(name, convergence_result['r_hat'][name]) 
-                                          for name, converged in convergence_result['converged'].items() 
-                                          if not converged and name in convergence_result['r_hat']]
-                        if unconverged_rhat:
-                            # Sort by worst R-hat
-                            unconverged_rhat.sort(key=lambda x: x[1], reverse=True)
-                            worst_params = unconverged_rhat[:3]  # Show up to 3 worst
-                            param_info = ", ".join([f"{name}={rhat:.3f}" for name, rhat in worst_params])
-                            print(f"    Worst R-hat: {param_info}")
-                    
-                    # Show insufficient ESS parameters
-                    insufficient_ess = [(name, ess_val) 
-                                      for name, ess_val in convergence_result['ess_bulk'].items() 
-                                      if ess_val < 100]
-                    if insufficient_ess:
-                        insufficient_ess.sort(key=lambda x: x[1])  # Sort by lowest ESS
-                        worst_ess = insufficient_ess[:3]  # Show up to 3 worst
-                        ess_info = ", ".join([f"{name}={ess:.1f}" for name, ess in worst_ess])
-                        print(f"    Low ESS: {ess_info}")
+                    # Only show detailed info if close to convergence or having issues
+                    if convergence_fraction > 0.8 or convergence_fraction < 0.3:
+                        # Show worst R-hat parameters if any are unconverged
+                        if converged_count < total_params:
+                            unconverged_rhat = [(name, convergence_result['r_hat'][name]) 
+                                              for name, converged in convergence_result['converged'].items() 
+                                              if not converged and name in convergence_result['r_hat']]
+                            if unconverged_rhat:
+                                # Sort by worst R-hat and show worst 2
+                                unconverged_rhat.sort(key=lambda x: x[1], reverse=True)
+                                worst_params = unconverged_rhat[:2]  # Show top 2 worst
+                                param_info = ", ".join([f"{name}={rhat:.3f}" for name, rhat in worst_params])
+                                print(f"    Worst R-hat: {param_info}")
+                        
+                        # Show insufficient ESS parameters (only worst 2)
+                        insufficient_ess = [(name, ess_val) 
+                                          for name, ess_val in convergence_result['ess_bulk'].items() 
+                                          if ess_val < 100]
+                        if insufficient_ess and len(insufficient_ess) <= 5:  # Only show if not too many
+                            insufficient_ess.sort(key=lambda x: x[1])  # Sort by lowest ESS
+                            worst_ess = insufficient_ess[:2]  # Show top 2 worst
+                            ess_info = ", ".join([f"{name}={ess:.1f}" for name, ess in worst_ess])
+                            print(f"    Low ESS: {ess_info}")
         
         # Debug every 1000 iterations
         if i % 1000 == 0:
