@@ -2388,7 +2388,7 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
         #parm_step[p] = 2.4**2/nparms * (model.pmax[p]-model.pmin[p])
         base_step = 0.05 * (self.ensemble_pmax[p]-self.ensemble_pmin[p])  # 5% for better initial mixing
         
-        # Conservative initial step size (will be adapted based on sensitivity analysis if available)
+        # Intelligent initial step size based on sensitivity if available
         parm_step[p] = base_step
         #parms[p] = np.random.uniform(parms[p]-parm_step[p],parms[p]+parm_step[p],1)
         #parms[p] = self.pdef[p]
@@ -2404,19 +2404,22 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
         mycov[i,i] = parm_step[i]**2
 
     # ======================================================================
-    # Preconditioning Phase: Quick scale estimation for better initial mixing
+    # Optimized Preconditioning Phase: Quick scale estimation for better initial mixing
     # ======================================================================
-    print("Running preconditioning phase for better initial proposals...")
-    precon_samples = min(100, burnsteps * nburn // 10)  # 10% of burn-in for preconditioning
+    print("Running optimized preconditioning phase...")
+    precon_samples = min(50, burnsteps * nburn // 20)  # Reduced to 5% of burn-in for efficiency
     precon_chain = np.zeros((nparms, precon_samples))
     precon_accepted = 0
     
     current_params = parms.copy()
     current_post, _ = calc_posterior(self, current_params, myvars)
     
+    # Use smaller initial steps for more conservative preconditioning
+    precon_cov = mycov * 0.5  # Start with smaller steps
+    
     for precon_i in range(precon_samples):
-        # Simple random walk with current covariance
-        proposal = np.random.multivariate_normal(current_params, mycov)
+        # Simple random walk with scaled covariance
+        proposal = np.random.multivariate_normal(current_params, precon_cov)
         
         # Apply bounds
         proposal = np.clip(proposal, self.ensemble_pmin, self.ensemble_pmax)
@@ -2429,22 +2432,28 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
             precon_accepted += 1
         
         precon_chain[:, precon_i] = current_params
+        
+        # Early exit if we get good acceptance rate quickly
+        if precon_i > 20 and precon_accepted / (precon_i + 1) > 0.4:
+            precon_samples = precon_i + 1
+            precon_chain = precon_chain[:, :precon_samples]
+            break
     
     # Update initial covariance based on preconditioning
-    if precon_accepted > 10:  # Need some accepted samples
-        precon_cov = np.cov(precon_chain)
+    if precon_accepted > 5:  # Lower threshold for efficiency
+        precon_cov_est = np.cov(precon_chain[:, :precon_samples])
         precon_accept_rate = precon_accepted / precon_samples
         
-        # Scale the covariance based on acceptance rate
-        if precon_accept_rate < 0.1:
-            scale_factor = 0.5
-        elif precon_accept_rate > 0.7:
-            scale_factor = 1.5
+        # More nuanced scaling based on acceptance rate
+        if precon_accept_rate < 0.15:
+            scale_factor = 0.3  # More conservative
+        elif precon_accept_rate > 0.6:
+            scale_factor = 1.8  # More aggressive
         else:
             scale_factor = 1.0
             
-        # Blend preconditioning covariance with initial
-        mycov = 0.7 * (scale_factor * precon_cov) + 0.3 * mycov
+        # Conservative blending to avoid overshooting
+        mycov = 0.6 * (scale_factor * precon_cov_est) + 0.4 * mycov
         
         print(f"Preconditioning: {precon_accepted}/{precon_samples} accepted ({precon_accept_rate:.1%})")
         print(f"Applied scale factor: {scale_factor:.2f}")
@@ -2463,21 +2472,31 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     initial_post, initial_output = calc_posterior(self, parms, myvars)
     print(f"DEBUG: Initial posterior: {initial_post}")
     
-    # If initial posterior is invalid, try to find a better starting point
+    # If initial posterior is invalid, try to find a better starting point (more efficiently)
     if initial_post <= -9999999 or not np.isfinite(initial_post):
-        print("WARNING: Initial posterior is invalid, searching for better starting point...")
+        print("WARNING: Initial posterior is invalid, quick search for better starting point...")
         best_post = initial_post
         best_parms = parms.copy()
         
-        for attempt in range(50):  # Try 50 random points
-            # Random point within bounds
-            trial_parms = np.random.uniform(self.ensemble_pmin, self.ensemble_pmax)
+        # More efficient search: fewer attempts but smarter selection
+        for attempt in range(20):  # Reduced from 50 to 20 attempts
+            # Try Latin Hypercube sampling for better coverage
+            if attempt < 10:
+                # Random point within bounds
+                trial_parms = np.random.uniform(self.ensemble_pmin, self.ensemble_pmax)
+            else:
+                # Try points closer to parameter bounds for better coverage
+                alpha = np.random.rand(nparms)
+                trial_parms = alpha * self.ensemble_pmax + (1 - alpha) * self.ensemble_pmin
+            
             trial_post, trial_output = calc_posterior(self, trial_parms, myvars)
             
             if trial_post > best_post and np.isfinite(trial_post):
                 best_post = trial_post
                 best_parms = trial_parms.copy()
-                if trial_post > -9999999:
+                # Early exit if we find a good starting point
+                if trial_post > -1000:  # Much better threshold
+                    print(f"Found good starting point early at attempt {attempt+1}")
                     break
         
         if best_post > initial_post:
@@ -2546,9 +2565,9 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     
     # Initialize adaptive MCMC tracking variables (only if enabled)
     if enable_adaptive:
-        # More frequent adaptation for better convergence
-        adaptation_interval = max(50, min(nburn // 10, 200))  # Adapt every 50-200 steps
-        warmup_phase = int(burnsteps * nburn * 0.2)  # First 20% is aggressive warmup
+        # More aggressive early adaptation for faster convergence
+        adaptation_interval = max(25, min(nburn // 20, 100))  # Adapt every 25-100 steps (more frequent)
+        warmup_phase = int(burnsteps * nburn * 0.15)  # First 15% is aggressive warmup (shorter)
         adaptation_history = []
         last_adaptation_step = 0
         proposal_method = 'multivariate_normal'  # Start with standard method
@@ -2570,7 +2589,17 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
             mycov, initial_scaling_info = apply_sensitivity_informed_scaling(
                 self, mycov, sensitivity_info, adaptation_factor=0.3)
             
-            print(f"      Applied sensitivity-based initial scaling")
+            # Adjust initial step sizes based on sensitivity
+            for p in range(nparms):
+                param_name = self.ensemble_parms[p] if p < len(self.ensemble_parms) else f'param_{p}'
+                if param_name in sensitivity_info['high_sensitivity_params']:
+                    # Reduce step size for highly sensitive parameters
+                    mycov[p, p] *= 0.5
+                elif param_name in sensitivity_info['low_sensitivity_params']:
+                    # Increase step size for less sensitive parameters
+                    mycov[p, p] *= 1.8
+            
+            print(f"      Applied sensitivity-based initial scaling and step size adjustment")
         else:
             print(f"MCMC: No sensitivity analysis results found")
             print(f"      Consider running GSA first for optimal MCMC tuning")
@@ -2592,7 +2621,7 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
         temp_stats = {'temp_steps': 0, 'temp_accepts': 0}
         
     if enable_auto_convergence:
-        convergence_check_interval = max(min(nburn, 1000), 500)  # Less frequent convergence checks for performance
+        convergence_check_interval = max(min(nburn // 2, 500), 250)  # More frequent initial checks
         last_convergence_check = 0
         adaptive_check_interval = convergence_check_interval  # Will adapt based on convergence progress
         poor_convergence_count = 0  # Track consecutive poor convergence checks
@@ -2753,8 +2782,8 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
         if (enable_block_sampling and i > burnsteps * nburn // 4 and 
             correlation_blocks is not None and len(correlation_blocks) > 1):
             
-            # Try block sampling more frequently for better mixing
-            block_probability = 0.5 if i > burnsteps * nburn else 0.3  # Higher rate during sampling
+            # Conservative block sampling probability for efficiency
+            block_probability = 0.3 if i > burnsteps * nburn else 0.2  # Reduced frequency
             if random.random() < block_probability:
                 parms_new, post_new, n_accepted, block_info = block_sampling_step(
                     self, parm_last, mycov, myvars, post_last, 
@@ -2881,23 +2910,25 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                 chain_mean = (chain_mean * adaptation_count + parms) / (adaptation_count + 1)
                 adaptation_count += 1
                 
-                # Update covariance every 50 steps during burn-in
-                if i < burnsteps * nburn and i % 50 == 0 and adaptation_count > 10:
+                # Update covariance every 25 steps during burn-in (more frequent updates)
+                if i < burnsteps * nburn and i % 25 == 0 and adaptation_count > 5:
                     end_idx = min(i+1, chain.shape[1])
                     chain_recent = chain[0:nparms, max(0, i-500):end_idx]
                     if chain_recent.shape[1] > nparms:
                         # Calculate current acceptance rate for adaptive update
                         current_accept_rate = accepted_tot / (i + 1) if i > 0 else 0.0
                         
-                        # Apply adaptive Metropolis update
+                        # Apply adaptive Metropolis update with higher adaptation rate during warmup
+                        adaptation_rate = 0.2 if i < warmup_phase else 0.1  # More aggressive early adaptation
                         mycov, adaptation_info = adaptive_metropolis_update(
                             mycov, chain_recent, accept_rate=current_accept_rate,
-                            adaptation_rate=0.1)
+                            adaptation_rate=adaptation_rate)
                         
-                        # Apply sensitivity-informed scaling if available
+                        # Apply sensitivity-informed scaling if available with more aggressive scaling early on
                         if sensitivity_info is not None:
+                            sensitivity_factor = 0.15 if i < warmup_phase else 0.05  # More aggressive early scaling
                             mycov, _ = apply_sensitivity_informed_scaling(
-                                self, mycov, sensitivity_info, adaptation_factor=0.05)
+                                self, mycov, sensitivity_info, adaptation_factor=sensitivity_factor)
                         
                         # Monitor correlation issues and adjust proposal method
                         param_names = [self.ensemble_parms[p] if p < len(self.ensemble_parms) 
@@ -2915,7 +2946,7 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                         else:
                             proposal_method = 'cholesky'  # Default stable method
                         
-                        if i % 200 == 0:
+                        if i % 500 == 0:  # Less frequent adaptation logging for performance
                             print(f"  Adaptation at iteration {i}: method={proposal_method}, "
                                   f"condition={np.linalg.cond(mycov):.2e}")
         
@@ -2975,14 +3006,14 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                     total_params = len(convergence_result['converged'])
                     convergence_fraction = converged_count / total_params if total_params > 0 else 0.0
                     
-                    # Adapt check frequency based on convergence progress
+                    # Adapt check frequency based on convergence progress (optimized)
                     if convergence_fraction > 0.8:
-                        # Close to convergence - check more frequently
-                        adaptive_check_interval = max(convergence_check_interval // 2, 200)
+                        # Close to convergence - check more frequently but not too often
+                        adaptive_check_interval = max(convergence_check_interval // 2, 100)
                         poor_convergence_count = 0  # Reset poor convergence counter
-                    elif convergence_fraction < 0.3:
-                        # Poor convergence - check less frequently to save time
-                        adaptive_check_interval = min(convergence_check_interval * 3, 2000)
+                    elif convergence_fraction < 0.2:  # More stringent threshold
+                        # Very poor convergence - check much less frequently to save time
+                        adaptive_check_interval = min(convergence_check_interval * 4, 3000)
                         poor_convergence_count += 1
                         
                         # Emergency circuit breaker for very poor convergence
@@ -3032,8 +3063,8 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                             ess_info = ", ".join([f"{name}={ess:.1f}" for name, ess in worst_ess])
                             print(f"    Low ESS: {ess_info}")
         
-        # Debug every 1000 iterations
-        if i % 1000 == 0:
+        # Debug every 2000 iterations (less frequent for performance)
+        if i % 2000 == 0:
             accept_rate = accepted_tot / (i + 1)
             print(f"Iteration {i}: posterior={post:.3f}, acceptance={accept_rate:.3f}, "
                   f"method={step_info['method']}")
