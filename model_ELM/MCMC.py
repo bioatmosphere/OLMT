@@ -2348,10 +2348,11 @@ def MCMC_custom(self, parms, myvars, nevals, *,
 
 def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps=10, default_output=None):
     """
-    Enhanced custom Metropolis-Hastings MCMC implementation with adaptive proposals.
+    Enhanced custom Metropolis-Hastings MCMC implementation with intelligent burn-in.
     
     Features:
-    - Adaptive Metropolis algorithm (Haario et al. 2001)
+    - Intelligent multi-phase burn-in for faster convergence
+    - Adaptive Metropolis algorithm (Haario et al. 2001)  
     - Correlation-based proposal method selection
     - Enhanced numerical stability for ill-conditioned covariance matrices
     - Real-time adaptation monitoring and diagnostics
@@ -2563,14 +2564,39 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     print(f"  Parallel tempering: {'ENABLED' if enable_parallel_tempering else 'DISABLED'}")
     print(f"  Auto convergence: {'ENABLED' if enable_auto_convergence else 'DISABLED'}")
     
+    # ======================================================================
+    # Intelligent Multi-Phase Burn-in Setup
+    # ======================================================================
+    total_burnin = burnsteps * nburn
+    
+    # Phase 1: Aggressive exploration (first 30% of burn-in)
+    phase1_end = int(total_burnin * 0.3)
+    # Phase 2: Adaptive refinement (next 50% of burn-in)  
+    phase2_end = int(total_burnin * 0.8)
+    # Phase 3: Fine-tuning (final 20% of burn-in)
+    phase3_end = total_burnin
+    
+    print(f"Multi-Phase Burn-in Structure:")
+    print(f"  Phase 1 (Exploration): steps 0-{phase1_end} ({phase1_end} steps)")
+    print(f"  Phase 2 (Adaptation):  steps {phase1_end+1}-{phase2_end} ({phase2_end-phase1_end} steps)")
+    print(f"  Phase 3 (Fine-tuning): steps {phase2_end+1}-{phase3_end} ({phase3_end-phase2_end} steps)")
+    
     # Initialize adaptive MCMC tracking variables (only if enabled)
     if enable_adaptive:
-        # More aggressive early adaptation for faster convergence
-        adaptation_interval = max(25, min(nburn // 20, 100))  # Adapt every 25-100 steps (more frequent)
-        warmup_phase = int(burnsteps * nburn * 0.15)  # First 15% is aggressive warmup (shorter)
+        # Phase-specific adaptation intervals
+        adaptation_interval = max(15, min(nburn // 30, 50))  # Very frequent in early phases
+        warmup_phase = phase2_end  # Warmup extends through adaptation phase
         adaptation_history = []
         last_adaptation_step = 0
         proposal_method = 'multivariate_normal'  # Start with standard method
+        
+        # Phase-specific settings
+        current_burnin_phase = 1
+        phase_settings = {
+            1: {'adaptation_rate': 0.3, 'target_accept': 0.4, 'adaptation_interval': 15},
+            2: {'adaptation_rate': 0.15, 'target_accept': 0.3, 'adaptation_interval': 25}, 
+            3: {'adaptation_rate': 0.05, 'target_accept': 0.234, 'adaptation_interval': 50}
+        }
         
         # Momentum-like adaptation tracking
         momentum_decay = 0.9
@@ -2633,10 +2659,66 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
         }
     
     for i in range(0,nevals):
+        # ======================================================================
+        # Intelligent Phase Management during Burn-in  
+        # ======================================================================
+        if enable_adaptive and i < total_burnin:
+            # Determine current burn-in phase
+            old_phase = getattr(self, '_current_phase', 1)
+            if i <= phase1_end:
+                current_phase = 1
+            elif i <= phase2_end:
+                current_phase = 2
+            else:
+                current_phase = 3
+            
+            # Phase transition management
+            if current_phase != old_phase:
+                phase_names = {1: 'Exploration', 2: 'Adaptation', 3: 'Fine-tuning'}
+                print(f"\n🔄 BURN-IN PHASE {current_phase}: {phase_names[current_phase]} (step {i})")
+                
+                # Reset adaptation statistics for new phase
+                accepted_step = 0
+                
+                # Apply phase-specific covariance adjustments
+                if current_phase == 1:
+                    # Phase 1: Large steps for exploration
+                    adjustment_factor = 1.5
+                elif current_phase == 2:
+                    # Phase 2: Moderate steps, transitioning from exploration  
+                    adjustment_factor = 0.6  # Reduce from exploration
+                elif current_phase == 3:
+                    # Phase 3: Smaller steps for fine-tuning
+                    adjustment_factor = 0.8  # Further refinement
+                
+                if current_phase != old_phase and old_phase > 0:
+                    mycov *= adjustment_factor
+                    print(f"   Applied {adjustment_factor}x covariance scaling")
+                
+                self._current_phase = current_phase
+            
+            # Get phase-specific settings
+            if current_phase == 1:
+                current_adapt_rate = 0.3
+                current_target_accept = 0.4
+                current_adapt_interval = 15
+            elif current_phase == 2:
+                current_adapt_rate = 0.15
+                current_target_accept = 0.3
+                current_adapt_interval = 25
+            else:  # Phase 3
+                current_adapt_rate = 0.05
+                current_target_accept = 0.234
+                current_adapt_interval = 50
+        else:
+            # Post-burn-in settings
+            current_adapt_rate = 0.05
+            current_target_accept = 0.234
+            current_adapt_interval = 100
+            
         #update proposal step size using enhanced adaptive methods
         # Dynamic adaptation frequency: more frequent during warmup
         is_warmup = i < warmup_phase if enable_adaptive else False
-        current_adapt_interval = adaptation_interval // 2 if is_warmup else adaptation_interval
         
         if enable_adaptive and (i > 0 and (i % current_adapt_interval) == 0 and i < burnsteps*nburn):
             acc_ratio = float(accepted_step) / current_adapt_interval
@@ -2646,17 +2728,17 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
             
             # Apply enhanced adaptive metropolis update
             if recent_samples.shape[1] > nparms:  # Need enough samples
-                # More aggressive adaptation during warmup
-                warmup_adapt_rate = 0.2 if is_warmup else 0.1
-                warmup_target_accept = 0.35 if is_warmup else 0.3
+                # Use phase-specific adaptation parameters
+                phase_adapt_rate = current_adapt_rate if 'current_adapt_rate' in locals() else 0.1
+                phase_target_accept = current_target_accept if 'current_target_accept' in locals() else 0.234
                 
                 new_cov, adaptation_info = adaptive_metropolis_update(
                     current_cov=mycov,
                     chain_samples=recent_samples, 
                     accept_rate=acc_ratio,
-                    target_accept=warmup_target_accept,
-                    adaptation_rate=warmup_adapt_rate,
-                    min_samples=max(50, nparms*2)
+                    target_accept=phase_target_accept,
+                    adaptation_rate=phase_adapt_rate,
+                    min_samples=max(30, nparms*2)  # Reduced min samples for faster adaptation
                 )
                 
                 # Check for correlation issues
@@ -2702,11 +2784,29 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                     'condition_number': issues.get('condition_number', 1.0) if 'issues' in locals() else 1.0
                 })
                 
-                # Print adaptation info during burn-in
-                if i <= burnsteps * nburn * 0.5:  # First half of burn-in
-                    print(f"  MCMC Adaptation at step {i}: accept_rate={acc_ratio:.3f}, "
-                          f"method={adaptation_info['reason']}, "
-                          f"scale_factor={adaptation_info['new_scale']:.3f}")
+                # Phase-specific adaptation reporting
+                if enable_adaptive and i < total_burnin:
+                    # Report more frequently in early phases, less in later phases
+                    should_report = False
+                    if current_phase == 1 and i % 100 == 0:  # Every 100 steps in exploration
+                        should_report = True  
+                    elif current_phase == 2 and i % 200 == 0:  # Every 200 steps in adaptation
+                        should_report = True
+                    elif current_phase == 3 and i % 500 == 0:  # Every 500 steps in fine-tuning
+                        should_report = True
+                        
+                    if should_report:
+                        phase_names = {1: 'Exploration', 2: 'Adaptation', 3: 'Fine-tuning'}
+                        print(f"  Phase {current_phase} ({phase_names[current_phase]}) step {i}: "
+                              f"accept_rate={acc_ratio:.3f}, "
+                              f"method={adaptation_info['reason']}, "
+                              f"scale_factor={adaptation_info['new_scale']:.3f}")
+                        
+                        # Show condition number for monitoring numerical health
+                        if 'correlation_issues' in locals() and 'condition_number' in correlation_issues:
+                            cond_num = correlation_issues['condition_number'] 
+                            if cond_num > 1e6:
+                                print(f"    ⚠️  High condition number: {cond_num:.2e}")
             
             else:
                 # Fallback to simple scaling if not enough samples
@@ -2754,6 +2854,35 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     
     
         if (i == burnsteps*nburn):
+            # ======================================================================
+            # Burn-in Completion Summary and Diagnostics
+            # ======================================================================
+            burnin_accept_rate = accepted_tot / (i + 1) if i > 0 else 0.0
+            print(f"\n🎉 BURN-IN COMPLETED after {i+1} steps!")
+            print(f"  Overall acceptance rate: {burnin_accept_rate:.1%}")
+            print(f"  Total accepted steps: {accepted_tot}")
+            
+            # Phase-specific analysis if adaptive was enabled
+            if enable_adaptive and hasattr(self, '_current_phase'):
+                print(f"  Successfully completed all 3 burn-in phases:")
+                print(f"    ✓ Phase 1 (Exploration): steps 1-{phase1_end}")
+                print(f"    ✓ Phase 2 (Adaptation):  steps {phase1_end+1}-{phase2_end}")
+                print(f"    ✓ Phase 3 (Fine-tuning): steps {phase2_end+1}-{phase3_end}")
+                
+                # Analyze final covariance condition
+                try:
+                    final_condition = np.linalg.cond(mycov)
+                    if final_condition < 1e6:
+                        print(f"  ✓ Final covariance condition number: {final_condition:.2e} (good)")
+                    elif final_condition < 1e10:
+                        print(f"  ⚠️  Final covariance condition number: {final_condition:.2e} (marginal)")
+                    else:
+                        print(f"  ❌ Final covariance condition number: {final_condition:.2e} (poor)")
+                except:
+                    print(f"  Could not compute final covariance condition number")
+            
+            print(f"  Starting main sampling phase with {nevals - (i+1)} iterations...")
+            
             #Parameter chain plots (burn-in period)
             for p in range(0,nparms):
                 fig = plt.figure()
@@ -2763,6 +2892,13 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                 plt.plot(xchain, chain_burnin)
                 plt.xlabel('Evaluations')
                 plt.ylabel(self.ensemble_parms[p])
+                
+                # Add phase boundary markers if multi-phase burn-in was used
+                if enable_adaptive:
+                    plt.axvline(x=phase1_end, color='red', linestyle='--', alpha=0.7, label='Phase 1→2')
+                    plt.axvline(x=phase2_end, color='orange', linestyle='--', alpha=0.7, label='Phase 2→3')
+                    plt.legend()
+                
                 if not os.path.exists(UQ_output+'/MCMC_output/plots/chains'):
                     os.makedirs(UQ_output+'/MCMC_output/plots/chains')
                 plt.savefig(UQ_output+'/MCMC_output/plots/chains/burnin_chain_'+self.ensemble_parms[p]+'.pdf')
@@ -2918,15 +3054,25 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                         # Calculate current acceptance rate for adaptive update
                         current_accept_rate = accepted_tot / (i + 1) if i > 0 else 0.0
                         
-                        # Apply adaptive Metropolis update with higher adaptation rate during warmup
-                        adaptation_rate = 0.2 if i < warmup_phase else 0.1  # More aggressive early adaptation
+                        # Apply adaptive Metropolis update with phase-specific adaptation rate
+                        phase_adapt_rate = current_adapt_rate if 'current_adapt_rate' in locals() else (0.2 if i < warmup_phase else 0.1)
                         mycov, adaptation_info = adaptive_metropolis_update(
                             mycov, chain_recent, accept_rate=current_accept_rate,
-                            adaptation_rate=adaptation_rate)
+                            adaptation_rate=phase_adapt_rate)
                         
-                        # Apply sensitivity-informed scaling if available with more aggressive scaling early on
+                        # Apply sensitivity-informed scaling with phase-specific factors
                         if sensitivity_info is not None:
-                            sensitivity_factor = 0.15 if i < warmup_phase else 0.05  # More aggressive early scaling
+                            # Phase-specific sensitivity factors  
+                            if i < total_burnin:
+                                if i <= phase1_end:
+                                    sensitivity_factor = 0.2  # Most aggressive in exploration
+                                elif i <= phase2_end:
+                                    sensitivity_factor = 0.12  # Moderate in adaptation
+                                else:
+                                    sensitivity_factor = 0.06  # Conservative in fine-tuning
+                            else:
+                                sensitivity_factor = 0.03  # Very conservative post-burn-in
+                                
                             mycov, _ = apply_sensitivity_informed_scaling(
                                 self, mycov, sensitivity_info, adaptation_factor=sensitivity_factor)
                         
