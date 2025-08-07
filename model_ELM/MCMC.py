@@ -2381,7 +2381,7 @@ def MCMC_multi_chain(self, parms, myvars, nevals, mcmc_type='uniform', nburn=100
             chain_start = parms.copy()
         else:
             # Overdispersed random starts within parameter bounds
-            parm_range = self.ensemble_pmax - self.ensemble_pmin
+            parm_range = np.array(self.ensemble_pmax) - np.array(self.ensemble_pmin)
             dispersion_factor = 0.3 + 0.4 * chain_id / max(1, nchains-1)  # 0.3 to 0.7
             random_offset = (np.random.rand(len(parms)) - 0.5) * dispersion_factor * parm_range
             chain_start = np.clip(parms + random_offset, self.ensemble_pmin, self.ensemble_pmax)
@@ -2655,7 +2655,7 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
             else:
                 # Try points closer to parameter bounds for better coverage
                 alpha = np.random.rand(nparms)
-                trial_parms = alpha * self.ensemble_pmax + (1 - alpha) * self.ensemble_pmin
+                trial_parms = alpha * np.array(self.ensemble_pmax) + (1 - alpha) * np.array(self.ensemble_pmin)
             
             trial_post, trial_output = calc_posterior(self, trial_parms, myvars)
             
