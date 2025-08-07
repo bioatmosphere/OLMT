@@ -3054,11 +3054,20 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
         #    print(' -- '+str(i)+' --\n')
 
     #print("Computing statistics")
-    chain_afterburn = chain[0:nparms,int(nburn*burnsteps):]
+    burnin_end_idx = int(nburn*burnsteps)
+    actual_chain_length = chain.shape[1]
+    
+    # Handle case where early stopping occurred before burn-in completed
+    if burnin_end_idx >= actual_chain_length:
+        print(f"Warning: Early stopping occurred at iteration {actual_chain_length}, but burn-in period was {burnin_end_idx}")
+        print(f"Using last 50% of samples as 'post-burn-in' data")
+        burnin_end_idx = max(0, actual_chain_length // 2)
+    
+    chain_afterburn = chain[0:nparms, burnin_end_idx:actual_chain_length]
     chain_sorted = chain_afterburn
     output_sorted={}
     for v in myvars:
-      output_sorted[v] = output[v][0:self.nobs[v],int(nburn*burnsteps):]
+      output_sorted[v] = output[v][0:self.nobs[v], burnin_end_idx:actual_chain_length]
       output_sorted[v].sort()
 
     np.savetxt(UQ_output+'/MCMC_output/MCMC_chain.txt', np.transpose(chain_afterburn))
@@ -3098,14 +3107,26 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
         
         # Check if we have sufficient post-burn-in samples
         if actual_length <= 0:
-            print(f"Warning: No post-burn-in samples available for plotting parameter {p}")
-            plt.text(0.5, 0.5, 'Insufficient samples\nafter burn-in', 
-                    ha='center', va='center', transform=plt.gca().transAxes)
-            xchain = [1]
-            chain_data = [0]
-        else:
-            xchain = np.arange(1, actual_length + 1)  # 1-indexed for cleaner plots  
-            chain_data = chain_afterburn[p,:]
+            print(f"Error: No post-burn-in samples available for plotting parameter {p}")
+            print(f"Skipping plot for {self.ensemble_parms[p]}")
+            plt.close(fig)
+            continue
+        
+        # Use actual chain data
+        xchain = np.arange(1, actual_length + 1)  # 1-indexed for cleaner plots  
+        chain_data = chain_afterburn[p,:]
+        
+        # Remove any trailing zeros that might exist from initialization
+        if actual_length > 10:  # Only clean if we have sufficient data
+            # Find the last non-zero value
+            nonzero_indices = np.nonzero(chain_data)[0]
+            if len(nonzero_indices) > 0:
+                last_nonzero_idx = nonzero_indices[-1]
+                # If there are many trailing zeros, trim them
+                if last_nonzero_idx < actual_length - 5:
+                    print(f"Trimming {actual_length - last_nonzero_idx - 1} trailing zeros from {self.ensemble_parms[p]}")
+                    chain_data = chain_data[:last_nonzero_idx + 1]
+                    xchain = xchain[:last_nonzero_idx + 1]
             
         plt.plot(xchain, chain_data)
         plt.xlabel('Evaluations')
@@ -3175,7 +3196,7 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     # Calculate ESS for each parameter
     ess_results = {}
     tau_results = {}
-    n_samples_afterburn = nevals - int(nburn * burnsteps)
+    n_samples_afterburn = actual_chain_length - burnin_end_idx
     
     for p in range(nparms):
         param_name = self.ensemble_parms[p] if p < len(self.ensemble_parms) else f'param_{p}'
