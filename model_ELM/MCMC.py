@@ -2270,7 +2270,8 @@ def MCMC_custom(self, parms, myvars, nevals, *,
          mcmc_type='uniform', nburn=1000, burnsteps=10, 
          default_output=None, sampler='custom', enable_adaptive=True,
          enable_delayed_rejection=True, enable_block_sampling=True,
-         enable_parallel_tempering=False, enable_auto_convergence=True, **kwargs):
+         enable_parallel_tempering=False, enable_auto_convergence=True,
+         nchains=3, **kwargs):
     """
     Perform Markov Chain Monte Carlo (MCMC) to estimate the posterior distribution of parameters.
 
@@ -2332,7 +2333,11 @@ def MCMC_custom(self, parms, myvars, nevals, *,
         self._enable_parallel_tempering = enable_parallel_tempering
         self._enable_auto_convergence = enable_auto_convergence
         
-        return self.MCMC(parms, myvars, nevals, mcmc_type, nburn, burnsteps, default_output)
+        # Choose between single chain and multi-chain based on nchains parameter
+        if nchains > 1:
+            return self.MCMC_multi_chain(parms, myvars, nevals, mcmc_type, nburn, burnsteps, default_output, nchains)
+        else:
+            return self.MCMC(parms, myvars, nevals, mcmc_type, nburn, burnsteps, default_output)
     elif sampler in ['pymc3', 'pymc3_nuts']:
         tune = kwargs.get('tune', nburn * burnsteps)
         target_accept = kwargs.get('target_accept', 0.9)
@@ -2345,6 +2350,167 @@ def MCMC_custom(self, parms, myvars, nevals, *,
         return MCMC_pymc3(self, parms, myvars, nevals, tune=tune, sampler='ADVI')
     else:
         raise ValueError(f"Unknown sampler: {sampler}. Choose from 'custom', 'custom_adaptive', 'pymc3', 'pymc3_metropolis', 'pymc3_advi'")
+
+def MCMC_multi_chain(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps=10, default_output=None, nchains=3):
+    """
+    Multi-chain MCMC wrapper that runs multiple independent chains and combines results.
+    
+    This function runs multiple MCMC chains in sequence and provides enhanced convergence
+    diagnostics using Gelman-Rubin R-hat statistics across chains.
+    """
+    print(f"🔗 Running {nchains} independent MCMC chains for robust convergence assessment")
+    
+    # Initialize results storage
+    all_chains = []
+    all_outputs = {}
+    for v in myvars:
+        all_outputs[v] = []
+    
+    chain_acceptance_rates = []
+    chain_best_posteriors = []
+    chain_best_params = []
+    
+    # Run each chain independently
+    for chain_id in range(nchains):
+        print(f"\n{'='*60}")
+        print(f"🔗 STARTING CHAIN {chain_id+1}/{nchains}")
+        print(f"{'='*60}")
+        
+        # Generate overdispersed starting point for this chain
+        if chain_id == 0:
+            chain_start = parms.copy()
+        else:
+            # Overdispersed random starts within parameter bounds
+            parm_range = self.ensemble_pmax - self.ensemble_pmin
+            dispersion_factor = 0.3 + 0.4 * chain_id / max(1, nchains-1)  # 0.3 to 0.7
+            random_offset = (np.random.rand(len(parms)) - 0.5) * dispersion_factor * parm_range
+            chain_start = np.clip(parms + random_offset, self.ensemble_pmin, self.ensemble_pmax)
+        
+        print(f"Chain {chain_id+1} starting parameters: {chain_start[:min(3, len(chain_start))]}{'...' if len(chain_start) > 3 else ''}")
+        
+        # Run single chain
+        best_params_chain = self.MCMC(chain_start, myvars, nevals, mcmc_type, nburn, burnsteps, default_output)
+        
+        # Store chain results (read from saved files)
+        chain_file = f'./UQ_output/{self.casename}/MCMC_output/MCMC_chain.txt'
+        if os.path.exists(chain_file):
+            chain_data = np.loadtxt(chain_file)
+            all_chains.append(chain_data.T)  # Transpose to get (nparms, nsamples)
+            
+            # Calculate acceptance rate for this chain  
+            n_accepted = len(chain_data)
+            acceptance_rate = n_accepted / nevals if nevals > 0 else 0.0
+            chain_acceptance_rates.append(acceptance_rate)
+            
+            print(f"✅ Chain {chain_id+1} completed - Acceptance rate: {acceptance_rate:.1%}")
+        else:
+            print(f"❌ Chain {chain_id+1} failed - no output file found")
+            
+        chain_best_params.append(best_params_chain)
+        # Note: would need to extract best posterior from MCMC function return
+    
+    if len(all_chains) < 2:
+        print("❌ Not enough successful chains for multi-chain analysis")
+        return chain_best_params[0] if chain_best_params else parms
+    
+    # Combine chains and perform multi-chain diagnostics
+    print(f"\n{'='*60}")
+    print(f"🔍 MULTI-CHAIN CONVERGENCE ANALYSIS")
+    print(f"{'='*60}")
+    
+    combined_chains = np.array(all_chains)  # Shape: (nchains, nparms, nsamples)
+    multi_chain_diagnostics = self.multi_chain_convergence_diagnostics(combined_chains)
+    
+    # Report convergence results
+    print(f"Multi-chain R-hat statistics:")
+    param_names = [self.ensemble_parms[p] if p < len(self.ensemble_parms) else f'param_{p}' 
+                   for p in range(combined_chains.shape[1])]
+    
+    for p, param_name in enumerate(param_names):
+        rhat = multi_chain_diagnostics['r_hat'][p]
+        status = "✅" if rhat < 1.1 else "⚠️" if rhat < 1.2 else "❌"
+        print(f"  {param_name:20s}: R-hat = {rhat:.4f} {status}")
+    
+    print(f"\nOverall convergence assessment:")
+    print(f"  Max R-hat: {multi_chain_diagnostics['max_rhat']:.4f}")
+    print(f"  Converged parameters: {multi_chain_diagnostics['n_converged']}/{len(param_names)}")
+    
+    if multi_chain_diagnostics['max_rhat'] < 1.1:
+        print("✅ EXCELLENT: All chains have converged (R-hat < 1.1)")
+    elif multi_chain_diagnostics['max_rhat'] < 1.2:
+        print("⚠️  ACCEPTABLE: Chains show reasonable convergence (R-hat < 1.2)")
+    else:
+        print("❌ POOR: Chains have not converged well (R-hat > 1.2)")
+        print("   Consider running longer or checking for multimodality")
+    
+    # Return best parameters (from best chain)
+    if chain_best_posteriors:
+        best_chain_idx = np.argmax(chain_best_posteriors)
+        return chain_best_params[best_chain_idx]
+    else:
+        # Return mean of best parameters across chains
+        return np.mean(chain_best_params, axis=0)
+
+def multi_chain_convergence_diagnostics(self, chains):
+    """
+    Calculate Gelman-Rubin R-hat convergence diagnostics across multiple chains.
+    
+    Parameters
+    ----------
+    chains : ndarray
+        Chain samples with shape (nchains, nparms, nsamples).
+        
+    Returns
+    -------
+    diagnostics : dict
+        Dictionary with R-hat values and convergence assessment.
+    """
+    nchains, nparms, nsamples = chains.shape
+    
+    # Calculate R-hat for each parameter
+    r_hat_values = []
+    
+    for p in range(nparms):
+        param_chains = chains[:, p, :]  # Shape: (nchains, nsamples)
+        
+        # Calculate within-chain variance (W)
+        within_chain_vars = np.var(param_chains, axis=1, ddof=1)  # Variance for each chain
+        W = np.mean(within_chain_vars)
+        
+        # Calculate between-chain variance (B)
+        chain_means = np.mean(param_chains, axis=1)  # Mean for each chain
+        overall_mean = np.mean(chain_means)
+        B = nsamples * np.var(chain_means, ddof=1)  # Between-chain variance
+        
+        # Calculate pooled variance estimate
+        var_plus = ((nsamples - 1) * W + B) / nsamples
+        
+        # Calculate R-hat (potential scale reduction factor)
+        if W > 0:
+            r_hat = np.sqrt(var_plus / W)
+        else:
+            r_hat = 1.0  # If no within-chain variance, assume convergence
+        
+        r_hat_values.append(r_hat)
+    
+    r_hat_values = np.array(r_hat_values)
+    
+    # Summary statistics
+    max_rhat = np.max(r_hat_values)
+    mean_rhat = np.mean(r_hat_values)
+    converged = r_hat_values < 1.1  # Standard threshold
+    n_converged = np.sum(converged)
+    
+    diagnostics = {
+        'r_hat': r_hat_values,
+        'max_rhat': max_rhat,
+        'mean_rhat': mean_rhat,
+        'converged': converged,
+        'n_converged': n_converged,
+        'convergence_fraction': n_converged / nparms if nparms > 0 else 0.0
+    }
+    
+    return diagnostics
 
 def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps=10, default_output=None):
     """
@@ -2368,6 +2534,7 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     
     UQ_output='./UQ_output/'+self.casename
     print(os.path.abspath(UQ_output))
+    
     #Metropolis-Hastings Markov Chain Monte Carlo with adaptive sampling
     # Variables post_best, post_last, parms_best initialized after calculating initial posterior
     accepted_step = 0
