@@ -1602,8 +1602,8 @@ def apply_sensitivity_informed_scaling(self, current_cov, sensitivity_info,
         return current_cov, {'applied': False, 'reason': 'No sensitivity info'}
     
     # Create sensitivity-based covariance
-    sens_cov, scaling_factors = create_sensitivity_based_covariance(
-        self, sensitivity_info, current_cov)
+    sens_cov, scaling_factors = self.create_sensitivity_based_covariance(
+        sensitivity_info, current_cov)
     
     # Blend with current covariance
     updated_cov = (1 - adaptation_factor) * current_cov + adaptation_factor * sens_cov
@@ -3102,17 +3102,27 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
         momentum_vector = np.zeros(nparms)
         previous_gradient_estimate = np.zeros(nparms)
         
-        # Check for sensitivity analysis results
-        sensitivity_info = extract_sensitivity_info(self, myvars)
+        # Optimize MCMC configuration using sensitivity analysis
+        mcmc_config = self.optimize_mcmc_with_sensitivity(
+            myvars, 
+            convergence_target='fast',  # Optimize for faster convergence
+            adaptation_strategy='aggressive'
+        )
+        
+        sensitivity_info = mcmc_config.get('sensitivity_info')
+        parameter_groups = mcmc_config.get('parameter_groups')
+        
         if sensitivity_info is not None:
-            print(f"MCMC: Using sensitivity analysis to inform proposals")
+            print(f"MCMC: Enhanced sensitivity-informed configuration activated")
             print(f"      High-sensitivity parameters: {len(sensitivity_info['high_sensitivity_params'])}")
             print(f"      Low-sensitivity parameters: {len(sensitivity_info['low_sensitivity_params'])}")
             print(f"      Parameter interactions detected: {len(sensitivity_info['interaction_pairs'])}")
+            print(f"      Parameter groups created: {parameter_groups['total_groups']}")
+            print(f"      Scaling strategy: {mcmc_config['scaling_strategy']}")
             
             # Apply optimized sensitivity-based scaling to covariance matrix
-            sens_cov, scaling_factors = create_sensitivity_based_covariance(
-                self, sensitivity_info, mycov, 
+            sens_cov, scaling_factors = self.create_sensitivity_based_covariance(
+                sensitivity_info, mycov, 
                 scaling_strategy=mcmc_config['scaling_strategy'])
             
             # Blend with current covariance using aggressive adaptation
@@ -3291,8 +3301,8 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                     dynamic_adapt_factor = initial_factor * (1 - burnin_progress) + min_factor * burnin_progress
                     
                     # Apply enhanced sensitivity scaling
-                    sens_cov, _ = create_sensitivity_based_covariance(
-                        self, sensitivity_info, mycov, 
+                    sens_cov, _ = self.create_sensitivity_based_covariance(
+                        sensitivity_info, mycov, 
                         scaling_strategy=mcmc_config['scaling_strategy'])
                     mycov = (1 - dynamic_adapt_factor) * mycov + dynamic_adapt_factor * sens_cov
                     
