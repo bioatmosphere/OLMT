@@ -1195,7 +1195,7 @@ def enhanced_proposal_step(parm_last, current_cov, method='multivariate_normal')
 # ======================================================================
 
 def extract_sensitivity_info(self, myvars, aggregation_method='mean', 
-                            importance_threshold=0.05):
+                            importance_threshold='adaptive', sensitivity_boost=2.0):
     """
     Extract and process sensitivity analysis results for MCMC tuning.
     
@@ -1205,8 +1205,11 @@ def extract_sensitivity_info(self, myvars, aggregation_method='mean',
         Variables for which sensitivity was analyzed.
     aggregation_method : str
         How to aggregate sensitivity across variables ('mean', 'max', 'weighted').
-    importance_threshold : float
+    importance_threshold : float or str
         Threshold below which parameters are considered low-sensitivity.
+        If 'adaptive', automatically determines optimal threshold.
+    sensitivity_boost : float
+        Multiplier for high-sensitivity parameters to accelerate convergence.
         
     Returns
     -------
@@ -1238,7 +1241,9 @@ def extract_sensitivity_info(self, myvars, aggregation_method='mean',
         'high_sensitivity_params': [],
         'low_sensitivity_params': [],
         'interaction_pairs': [],
-        'aggregation_method': aggregation_method
+        'parameter_sensitivities': [],
+        'aggregation_method': aggregation_method,
+        'sensitivity_boost': sensitivity_boost
     }
     
     # Calculate aggregated sensitivity indices
@@ -1291,10 +1296,13 @@ def extract_sensitivity_info(self, myvars, aggregation_method='mean',
         }
         
         # Classify parameters by importance
-        if sensitivity_info['aggregated_total'][p] >= importance_threshold:
-            sensitivity_info['high_sensitivity_params'].append(param_name)
-        else:
-            sensitivity_info['low_sensitivity_params'].append(param_name)
+        # Note: importance_threshold will be determined after processing all parameters
+        sensitivity_info['parameter_sensitivities'].append({
+            'name': param_name,
+            'index': p,
+            'total_sens': sensitivity_info['aggregated_total'][p],
+            'main_sens': sensitivity_info['aggregated_main'][p]
+        })
     
     # Identify strong parameter interactions
     if hasattr(self, 'sens_2nd'):
@@ -1327,11 +1335,65 @@ def extract_sensitivity_info(self, myvars, aggregation_method='mean',
         # Store interactions in a different format for easier access
         sensitivity_info['interactions'] = sensitivity_info['interaction_pairs']
     
+    # Apply adaptive thresholding and enhanced parameter classification
+    if importance_threshold == 'adaptive':
+        # Calculate adaptive threshold using statistical methods
+        all_sensitivities = [p['total_sens'] for p in sensitivity_info['parameter_sensitivities']]
+        
+        if all_sensitivities:
+            sens_mean = np.mean(all_sensitivities)
+            sens_std = np.std(all_sensitivities)
+            sens_median = np.median(all_sensitivities)
+            
+            # Use multiple criteria for adaptive threshold
+            threshold_candidates = [
+                sens_mean + 0.5 * sens_std,  # Above-average sensitivity
+                sens_median * 1.5,           # 1.5x median sensitivity  
+                np.percentile(all_sensitivities, 70),  # 70th percentile
+                0.1  # Minimum reasonable threshold
+            ]
+            
+            # Choose the threshold that creates a reasonable balance
+            final_threshold = np.median(threshold_candidates)
+            
+            # Ensure we don't classify too few or too many as high sensitivity
+            n_high = sum(1 for s in all_sensitivities if s >= final_threshold)
+            n_params = len(all_sensitivities)
+            
+            if n_high < 0.1 * n_params:  # Less than 10% high sensitivity
+                final_threshold = np.percentile(all_sensitivities, 90)
+            elif n_high > 0.7 * n_params:  # More than 70% high sensitivity  
+                final_threshold = np.percentile(all_sensitivities, 30)
+                
+            importance_threshold = final_threshold
+        else:
+            importance_threshold = 0.05  # Fallback to default
+    
+    # Classify parameters using the determined threshold
+    for param_data in sensitivity_info['parameter_sensitivities']:
+        if param_data['total_sens'] >= importance_threshold:
+            sensitivity_info['high_sensitivity_params'].append(param_data['name'])
+        else:
+            sensitivity_info['low_sensitivity_params'].append(param_data['name'])
+    
+    # Add enhanced sensitivity metrics
+    if sensitivity_info['parameter_sensitivities']:
+        all_sens = [p['total_sens'] for p in sensitivity_info['parameter_sensitivities']]
+        sensitivity_info['sensitivity_stats'] = {
+            'threshold_used': importance_threshold,
+            'mean_sensitivity': np.mean(all_sens),
+            'max_sensitivity': np.max(all_sens),
+            'sensitivity_range': np.max(all_sens) - np.min(all_sens),
+            'n_high_sensitivity': len(sensitivity_info['high_sensitivity_params']),
+            'n_low_sensitivity': len(sensitivity_info['low_sensitivity_params']),
+            'sensitivity_ratio': len(sensitivity_info['high_sensitivity_params']) / len(all_sens) if all_sens else 0
+        }
+    
     return sensitivity_info
 
 def create_sensitivity_based_covariance(self, sensitivity_info, base_covariance=None, 
-                                       scaling_strategy='inverse_sqrt',
-                                       min_scale=0.1, max_scale=10.0):
+                                       scaling_strategy='adaptive_hybrid',
+                                       min_scale=0.05, max_scale=15.0):
     """
     Create covariance matrix informed by sensitivity analysis.
     
@@ -1342,7 +1404,13 @@ def create_sensitivity_based_covariance(self, sensitivity_info, base_covariance=
     base_covariance : ndarray, optional
         Base covariance matrix. If None, uses current MCMC covariance.
     scaling_strategy : str
-        How to scale based on sensitivity ('inverse', 'inverse_sqrt', 'proportional').
+        How to scale based on sensitivity:
+        - 'inverse': High sensitivity → smaller steps (1/sens)
+        - 'inverse_sqrt': High sensitivity → smaller steps (1/sqrt(sens))
+        - 'proportional': High sensitivity → larger steps (sens)
+        - 'adaptive_hybrid': Dynamic scaling based on parameter importance
+        - 'exponential': Exponential scaling for extreme sensitivities
+        - 'rank_based': Scaling based on sensitivity ranking
     min_scale : float
         Minimum scaling factor to prevent overly small step sizes.
     max_scale : float
@@ -1380,6 +1448,8 @@ def create_sensitivity_based_covariance(self, sensitivity_info, base_covariance=
     normalized_sens = total_sens / max_sens
     
     # Apply scaling strategy
+    boost_factor = sensitivity_info.get('sensitivity_boost', 2.0)
+    
     if scaling_strategy == 'inverse':
         # High sensitivity → smaller steps (inverse relationship)
         scaling_factors = 1.0 / (normalized_sens + 0.1)  # Add small constant to avoid division by zero
@@ -1389,8 +1459,31 @@ def create_sensitivity_based_covariance(self, sensitivity_info, base_covariance=
     elif scaling_strategy == 'proportional':
         # High sensitivity → larger steps (proportional relationship)
         scaling_factors = normalized_sens + 0.1
+    elif scaling_strategy == 'adaptive_hybrid':
+        # Dynamic scaling based on parameter importance and sensitivity distribution
+        sens_stats = sensitivity_info.get('sensitivity_stats', {})
+        threshold = sens_stats.get('threshold_used', 0.05)
+        
+        scaling_factors = np.ones(n_params)
+        for i in range(n_params):
+            sens_val = normalized_sens[i]
+            if sens_val >= threshold / max_sens:  # High sensitivity parameter
+                # Use inverse square root with boost for faster convergence
+                scaling_factors[i] = boost_factor / np.sqrt(sens_val + 0.05)
+            else:  # Low sensitivity parameter
+                # Use gentler scaling to avoid stagnation
+                scaling_factors[i] = 0.5 + 2.0 * sens_val
+    elif scaling_strategy == 'exponential':
+        # Exponential scaling for extreme sensitivities
+        scaling_factors = np.exp(-2 * normalized_sens) + 0.1
+    elif scaling_strategy == 'rank_based':
+        # Scaling based on sensitivity ranking
+        ranks = np.argsort(np.argsort(normalized_sens))  # Get ranks (0 to n-1)
+        scaling_factors = (n_params - ranks) / n_params + 0.1
     else:
-        raise ValueError(f"Unknown scaling strategy: {scaling_strategy}")
+        raise ValueError(f"Unknown scaling strategy: {scaling_strategy}. "
+                        f"Available: 'inverse', 'inverse_sqrt', 'proportional', "
+                        f"'adaptive_hybrid', 'exponential', 'rank_based'")
     
     # Apply bounds to scaling factors
     scaling_factors = np.clip(scaling_factors, min_scale, max_scale)
@@ -1523,6 +1616,243 @@ def apply_sensitivity_informed_scaling(self, current_cov, sensitivity_info,
     }
     
     return updated_cov, scaling_info
+
+def create_sensitivity_guided_parameter_groups(self, sensitivity_info, max_group_size=5):
+    """
+    Create parameter groups based on sensitivity analysis for more efficient sampling.
+    
+    This function groups parameters by sensitivity levels and interactions to enable
+    block sampling and targeted proposal updates for faster convergence.
+    
+    Parameters
+    ----------
+    sensitivity_info : dict
+        Sensitivity information from extract_sensitivity_info().
+    max_group_size : int
+        Maximum number of parameters per group.
+        
+    Returns
+    -------
+    parameter_groups : dict
+        Dictionary containing parameter grouping information.
+    """
+    if sensitivity_info is None:
+        # Default: treat each parameter as its own group
+        return {
+            'groups': [[i] for i in range(self.nparms_ensemble)],
+            'group_types': ['individual'] * self.nparms_ensemble,
+            'group_priorities': [1.0] * self.nparms_ensemble
+        }
+    
+    groups = []
+    group_types = []
+    group_priorities = []
+    
+    # Get high and low sensitivity parameters
+    high_sens_params = sensitivity_info.get('high_sensitivity_params', [])
+    low_sens_params = sensitivity_info.get('low_sensitivity_params', [])
+    interactions = sensitivity_info.get('interaction_pairs', [])
+    
+    # Create parameter name to index mapping
+    param_to_idx = {}
+    for i in range(self.nparms_ensemble):
+        param_name = self.ensemble_parms[i] if i < len(self.ensemble_parms) else f'param_{i}'
+        param_to_idx[param_name] = i
+    
+    used_params = set()
+    
+    # Group 1: High-interaction parameter pairs (highest priority)
+    for param_i, param_j, strength in interactions[:5]:  # Top 5 interactions
+        if param_i not in used_params and param_j not in used_params:
+            idx_i = param_to_idx.get(param_i)
+            idx_j = param_to_idx.get(param_j)
+            if idx_i is not None and idx_j is not None:
+                groups.append([idx_i, idx_j])
+                group_types.append('interaction')
+                group_priorities.append(3.0 + strength)  # High priority with interaction strength
+                used_params.add(param_i)
+                used_params.add(param_j)
+    
+    # Group 2: High sensitivity parameters (individual or small groups)
+    high_sens_indices = [param_to_idx[p] for p in high_sens_params if p not in used_params and p in param_to_idx]
+    while high_sens_indices:
+        group_size = min(max_group_size // 2, len(high_sens_indices), 3)  # Smaller groups for high sensitivity
+        group = high_sens_indices[:group_size]
+        groups.append(group)
+        group_types.append('high_sensitivity')
+        group_priorities.append(2.5)  # High priority
+        high_sens_indices = high_sens_indices[group_size:]
+        for idx in group:
+            param_name = self.ensemble_parms[idx] if idx < len(self.ensemble_parms) else f'param_{idx}'
+            used_params.add(param_name)
+    
+    # Group 3: Low sensitivity parameters (larger groups for efficiency)
+    low_sens_indices = [param_to_idx[p] for p in low_sens_params if p not in used_params and p in param_to_idx]
+    while low_sens_indices:
+        group_size = min(max_group_size, len(low_sens_indices))
+        group = low_sens_indices[:group_size]
+        groups.append(group)
+        group_types.append('low_sensitivity')
+        group_priorities.append(1.0)  # Lower priority
+        low_sens_indices = low_sens_indices[group_size:]
+        for idx in group:
+            param_name = self.ensemble_parms[idx] if idx < len(self.ensemble_parms) else f'param_{idx}'
+            used_params.add(param_name)
+    
+    # Group 4: Any remaining ungrouped parameters
+    remaining_indices = []
+    for i in range(self.nparms_ensemble):
+        param_name = self.ensemble_parms[i] if i < len(self.ensemble_parms) else f'param_{i}'
+        if param_name not in used_params:
+            remaining_indices.append(i)
+    
+    while remaining_indices:
+        group_size = min(max_group_size, len(remaining_indices))
+        group = remaining_indices[:group_size]
+        groups.append(group)
+        group_types.append('remaining')
+        group_priorities.append(1.5)  # Medium priority
+        remaining_indices = remaining_indices[group_size:]
+    
+    return {
+        'groups': groups,
+        'group_types': group_types,
+        'group_priorities': group_priorities,
+        'total_groups': len(groups),
+        'sensitivity_informed': True
+    }
+
+def optimize_mcmc_with_sensitivity(self, myvars, sensitivity_info=None, 
+                                  convergence_target='fast', adaptation_strategy='aggressive'):
+    """
+    Comprehensive optimization of MCMC using sensitivity analysis for faster convergence.
+    
+    This function integrates all sensitivity-informed enhancements to maximize
+    MCMC convergence speed while maintaining sampling quality.
+    
+    Parameters
+    ----------
+    myvars : list
+        Variables for MCMC analysis.
+    sensitivity_info : dict, optional
+        Sensitivity information. If None, will attempt to extract from GSA results.
+    convergence_target : str
+        Convergence strategy: 'fast', 'balanced', or 'thorough'.
+    adaptation_strategy : str
+        How aggressively to apply sensitivity-based adaptations: 'gentle', 'balanced', 'aggressive'.
+        
+    Returns
+    -------
+    mcmc_config : dict
+        Optimized MCMC configuration parameters.
+    """
+    # Extract or use provided sensitivity information
+    if sensitivity_info is None:
+        sensitivity_info = self.extract_sensitivity_info(
+            myvars, 
+            importance_threshold='adaptive',
+            sensitivity_boost=3.0 if adaptation_strategy == 'aggressive' else 2.0
+        )
+    
+    # Create parameter groups for efficient sampling
+    param_groups = self.create_sensitivity_guided_parameter_groups(
+        sensitivity_info, 
+        max_group_size=6 if convergence_target == 'fast' else 4
+    )
+    
+    # Determine optimal scaling strategy based on sensitivity distribution
+    if sensitivity_info and 'sensitivity_stats' in sensitivity_info:
+        sens_stats = sensitivity_info['sensitivity_stats']
+        sensitivity_ratio = sens_stats.get('sensitivity_ratio', 0.5)
+        sensitivity_range = sens_stats.get('sensitivity_range', 1.0)
+        
+        if sensitivity_ratio > 0.7:  # Most parameters are high sensitivity
+            scaling_strategy = 'inverse_sqrt'  # Conservative scaling
+        elif sensitivity_ratio < 0.3:  # Most parameters are low sensitivity
+            scaling_strategy = 'adaptive_hybrid'  # Boost important ones
+        else:
+            scaling_strategy = 'adaptive_hybrid'  # Balanced approach
+            
+        if sensitivity_range > 2.0:  # Wide range of sensitivities
+            scaling_strategy = 'exponential'  # Handle extreme differences
+    else:
+        scaling_strategy = 'inverse_sqrt'  # Safe default
+    
+    # Configure adaptation parameters based on strategy
+    if adaptation_strategy == 'aggressive':
+        adaptation_config = {
+            'initial_adaptation_factor': 0.4,
+            'min_adaptation_factor': 0.1,
+            'adaptation_decay': 0.95,
+            'adaptation_frequency': 50,
+            'convergence_check_freq': 100
+        }
+    elif adaptation_strategy == 'balanced':
+        adaptation_config = {
+            'initial_adaptation_factor': 0.25,
+            'min_adaptation_factor': 0.05,
+            'adaptation_decay': 0.98,
+            'adaptation_frequency': 100,
+            'convergence_check_freq': 200
+        }
+    else:  # gentle
+        adaptation_config = {
+            'initial_adaptation_factor': 0.15,
+            'min_adaptation_factor': 0.02,
+            'adaptation_decay': 0.99,
+            'adaptation_frequency': 200,
+            'convergence_check_freq': 500
+        }
+    
+    # Configure burn-in phases based on convergence target
+    if convergence_target == 'fast':
+        burnin_config = {
+            'phase1_ratio': 0.2,  # Shorter exploration phase
+            'phase2_ratio': 0.6,  # Longer adaptation phase
+            'phase3_ratio': 0.2,  # Shorter fine-tuning phase
+            'total_burnin_multiplier': 0.8  # Reduce total burn-in length
+        }
+    elif convergence_target == 'balanced':
+        burnin_config = {
+            'phase1_ratio': 0.3,
+            'phase2_ratio': 0.5,
+            'phase3_ratio': 0.2,
+            'total_burnin_multiplier': 1.0
+        }
+    else:  # thorough
+        burnin_config = {
+            'phase1_ratio': 0.4,  # Longer exploration phase
+            'phase2_ratio': 0.4,
+            'phase3_ratio': 0.2,
+            'total_burnin_multiplier': 1.2  # Increase total burn-in length
+        }
+    
+    # Compile comprehensive MCMC configuration
+    mcmc_config = {
+        'sensitivity_info': sensitivity_info,
+        'parameter_groups': param_groups,
+        'scaling_strategy': scaling_strategy,
+        'adaptation_config': adaptation_config,
+        'burnin_config': burnin_config,
+        'convergence_target': convergence_target,
+        'adaptation_strategy': adaptation_strategy,
+        
+        # Enhanced convergence criteria for high-sensitivity parameters
+        'enhanced_convergence': {
+            'use_sensitivity_weighted_rhat': True,
+            'high_sens_rhat_threshold': 1.05 if convergence_target == 'fast' else 1.01,
+            'low_sens_rhat_threshold': 1.1,
+            'require_all_converged': True
+        },
+        
+        # Optimization flags
+        'use_parameter_grouping': len(param_groups['groups']) < self.nparms_ensemble,
+        'use_adaptive_proposals': True,
+        'use_sensitivity_scaling': sensitivity_info is not None,
+        'use_early_stopping': True
+    }
+    
+    return mcmc_config
 
 # ======================================================================
 # Advanced MCMC Sampling Techniques
@@ -2778,25 +3108,41 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
             print(f"      Low-sensitivity parameters: {len(sensitivity_info['low_sensitivity_params'])}")
             print(f"      Parameter interactions detected: {len(sensitivity_info['interaction_pairs'])}")
             
-            # Apply initial sensitivity-based scaling to covariance matrix
-            mycov, initial_scaling_info = apply_sensitivity_informed_scaling(
-                self, mycov, sensitivity_info, adaptation_factor=0.3)
+            # Apply optimized sensitivity-based scaling to covariance matrix
+            sens_cov, scaling_factors = create_sensitivity_based_covariance(
+                self, sensitivity_info, mycov, 
+                scaling_strategy=mcmc_config['scaling_strategy'])
             
-            # Adjust initial step sizes based on sensitivity
+            # Blend with current covariance using aggressive adaptation
+            adaptation_factor = mcmc_config['adaptation_config']['initial_adaptation_factor']
+            mycov = (1 - adaptation_factor) * mycov + adaptation_factor * sens_cov
+            
+            # Apply enhanced sensitivity-based step size adjustment
+            boost_factor = sensitivity_info.get('sensitivity_boost', 2.0)
             for p in range(nparms):
                 param_name = self.ensemble_parms[p] if p < len(self.ensemble_parms) else f'param_{p}'
                 if param_name in sensitivity_info['high_sensitivity_params']:
-                    # Reduce step size for highly sensitive parameters
-                    mycov[p, p] *= 0.5
+                    # Optimized scaling for high-sensitivity parameters
+                    param_sens = sensitivity_info['aggregated_total'][p]
+                    scale_factor = min(0.3, 1.0 / (boost_factor * param_sens + 0.1))
+                    mycov[p, p] *= scale_factor
                 elif param_name in sensitivity_info['low_sensitivity_params']:
-                    # Increase step size for less sensitive parameters
-                    mycov[p, p] *= 1.8
+                    # Enhanced scaling for low-sensitivity parameters
+                    mycov[p, p] *= min(3.0, boost_factor)
             
-            print(f"      Applied sensitivity-based initial scaling and step size adjustment")
+            print(f"      Applied enhanced sensitivity-based scaling (boost factor: {boost_factor:.1f})")
         else:
             print(f"MCMC: No sensitivity analysis results found")
-            print(f"      Consider running GSA first for optimal MCMC tuning")
+            print(f"      Running with default configuration (consider running GSA first)")
             sensitivity_info = None
+            mcmc_config = {
+                'adaptation_config': {
+                    'initial_adaptation_factor': 0.2,
+                    'adaptation_frequency': 200,
+                    'convergence_check_freq': 500
+                },
+                'use_sensitivity_scaling': False
+            }
     else:
         adaptation_history = []
         proposal_method = 'multivariate_normal'
@@ -2814,10 +3160,16 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
         temp_stats = {'temp_steps': 0, 'temp_accepts': 0}
         
     if enable_auto_convergence:
-        convergence_check_interval = max(min(nburn // 2, 500), 250)  # More frequent initial checks
+        # Use optimized convergence checking based on configuration
+        base_check_freq = mcmc_config['adaptation_config']['convergence_check_freq']
+        convergence_check_interval = max(min(nburn // 2, base_check_freq), 100)
         last_convergence_check = 0
-        adaptive_check_interval = convergence_check_interval  # Will adapt based on convergence progress
+        adaptive_check_interval = convergence_check_interval
         poor_convergence_count = 0  # Track consecutive poor convergence checks
+        
+        # Enhanced adaptation parameters from configuration
+        adaptation_frequency = mcmc_config['adaptation_config']['adaptation_frequency']
+        adaptation_decay = mcmc_config['adaptation_config'].get('adaptation_decay', 0.98)
         convergence_history = {
             'iterations': [],
             'rhat_max': [],
@@ -2930,12 +3282,24 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
                 
                 # Apply sensitivity-informed scaling if available (throughout burn-in)
                 if sensitivity_info is not None and i < burnsteps * nburn:  # Throughout burn-in phase
-                    # Dynamic adaptation factor: stronger early, gentler later
+                    # Enhanced dynamic adaptation factor based on configuration
                     burnin_progress = i / (burnsteps * nburn)
-                    dynamic_adapt_factor = 0.15 * (1 - burnin_progress) + 0.05 * burnin_progress
+                    initial_factor = mcmc_config['adaptation_config']['initial_adaptation_factor']
+                    min_factor = mcmc_config['adaptation_config'].get('min_adaptation_factor', 0.05)
+                    dynamic_adapt_factor = initial_factor * (1 - burnin_progress) + min_factor * burnin_progress
                     
-                    mycov, sens_scaling_info = apply_sensitivity_informed_scaling(
-                        self, mycov, sensitivity_info, adaptation_factor=dynamic_adapt_factor)
+                    # Apply enhanced sensitivity scaling
+                    sens_cov, _ = create_sensitivity_based_covariance(
+                        self, sensitivity_info, mycov, 
+                        scaling_strategy=mcmc_config['scaling_strategy'])
+                    mycov = (1 - dynamic_adapt_factor) * mycov + dynamic_adapt_factor * sens_cov
+                    
+                    sens_scaling_info = {
+                        'applied': True,
+                        'adaptation_factor': dynamic_adapt_factor,
+                        'high_sens_params': sensitivity_info['high_sensitivity_params'],
+                        'low_sens_params': sensitivity_info['low_sensitivity_params']
+                    }
                     
                     if sens_scaling_info['applied'] and i <= 2 * nburn:  # Print occasionally
                         n_high = len(sens_scaling_info['high_sens_params'])
