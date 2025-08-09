@@ -1317,9 +1317,11 @@ def extract_sensitivity_info(self, myvars, aggregation_method='mean',
                         interaction_strength = np.mean(self.sens_2nd[v][i, j, :])
                         
                         # Validate interaction strength and check threshold
+                        # Use a default threshold for interactions since importance_threshold may be 'adaptive'
+                        interaction_threshold = 0.025 if importance_threshold == 'adaptive' else importance_threshold * 0.5
                         if (np.isfinite(interaction_strength) and 
                             interaction_strength > 0 and 
-                            interaction_strength > importance_threshold * 0.5):  # Lower threshold for interactions
+                            interaction_strength > interaction_threshold):  # Lower threshold for interactions
                             param_i = self.ensemble_parms[i] if i < len(self.ensemble_parms) else f'param_{i}'
                             param_j = self.ensemble_parms[j] if j < len(self.ensemble_parms) else f'param_{j}'
                             
