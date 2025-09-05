@@ -122,7 +122,7 @@ def create_multisite_script(self,sites,scriptdir, walltime=6):
     if (self.queue == 'debug'):
         walltime=2
     if ('pm-cpu' in self.machine):
-        myfile.write('#SBATCH -time='+str(walltime)+':00:00\n')
+        myfile.write('#SBATCH --time='+str(walltime)+':00:00\n')
         myfile.write('#SBATCH --constraint=cpu\n')
     else:
         myfile.write('#SBATCH -t '+str(walltime)+':00:00\n')
