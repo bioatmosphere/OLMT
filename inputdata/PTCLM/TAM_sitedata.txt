@@ -1,2 +1,3 @@
 site_code,name,state,lon,lat,elev,startyear,endyear,alignyear
 US-Ho1,"Howland Forest Main",ME,-68.7402,45.2041,60,1996,2018,1851
+US-MOz,"Missouri Ozark Site",MO,-92.2,38.7441,291.4,2004,2014,1851
