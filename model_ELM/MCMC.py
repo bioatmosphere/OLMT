@@ -2858,7 +2858,7 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     
     # Check which MCMC enhancements are enabled
     enable_adaptive = getattr(self, '_enable_adaptive_mcmc', True)
-    enable_delayed_rejection = getattr(self, '_enable_delayed_rejection', True)
+    enable_delayed_rejection = getattr(self, '_enable_delayed_rejection', False)
     enable_block_sampling = getattr(self, '_enable_block_sampling', True)
     enable_parallel_tempering = getattr(self, '_enable_parallel_tempering', False)
     enable_auto_convergence = getattr(self, '_enable_auto_convergence', True)
@@ -2885,21 +2885,9 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     mycov      = np.zeros((nparms,nparms))
     for p in range(0,nparms):
         #Starting step size - reduced for more conservative proposals
-        #parm_step[p] = 2.4**2/nparms * (model.pmax[p]-model.pmin[p])
         base_step = 0.05 * (self.ensemble_pmax[p]-self.ensemble_pmin[p])  # 5% for better initial mixing
-        
         # Intelligent initial step size based on sensitivity if available
         parm_step[p] = base_step
-        #parms[p] = np.random.uniform(parms[p]-parm_step[p],parms[p]+parm_step[p],1)
-        #parms[p] = self.pdef[p]
-        #parms_sens = np.copy(parms)
-        #vary this parameter by one step
-        #parms_sens[p] = parms_sens[p]+parm_step[p]
-        #post_sens = calc_posterior(parms_sens)
-        #use 1D sensitivities to decrease the step sizes accordingly
-        #print p, np.absolute(post_def - post_sens)
-        #if (np.absolute(post_def - post_sens) > 1.0):
-        #    parm_step[p] = parm_step[p]/(np.absolute(post_def - post_sens))
     for i in range(0,nparms):
         mycov[i,i] = parm_step[i]**2
 
@@ -3086,21 +3074,8 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
         adaptation_interval = max(15, min(nburn // 30, 50))  # Very frequent in early phases
         warmup_phase = phase2_end  # Warmup extends through adaptation phase
         adaptation_history = []
-        last_adaptation_step = 0
         proposal_method = 'multivariate_normal'  # Start with standard method
         
-        # Phase-specific settings
-        current_burnin_phase = 1
-        phase_settings = {
-            1: {'adaptation_rate': 0.3, 'target_accept': 0.4, 'adaptation_interval': 15},
-            2: {'adaptation_rate': 0.15, 'target_accept': 0.3, 'adaptation_interval': 25}, 
-            3: {'adaptation_rate': 0.05, 'target_accept': 0.234, 'adaptation_interval': 50}
-        }
-        
-        # Momentum-like adaptation tracking
-        momentum_decay = 0.9
-        momentum_vector = np.zeros(nparms)
-        previous_gradient_estimate = np.zeros(nparms)
         
         # Optimize MCMC configuration using sensitivity analysis
         mcmc_config = self.optimize_mcmc_with_sensitivity(
@@ -3248,9 +3223,7 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
             current_adapt_interval = 100
             
         #update proposal step size using enhanced adaptive methods
-        # Dynamic adaptation frequency: more frequent during warmup
-        is_warmup = i < warmup_phase if enable_adaptive else False
-        
+        # Dynamic adaptation frequency: more frequent during warmup        
         if enable_adaptive and (i > 0 and (i % current_adapt_interval) == 0 and i < burnsteps*nburn):
             acc_ratio = float(accepted_step) / current_adapt_interval
             

@@ -257,7 +257,8 @@ if options.MCMC_only:
             sys.exit(1)
             
         print("Loading FLUXNET observations...")
-        fluxnet_variables = {'GPP', 'FPSN', 'NEE', 'ER', 'EFLX_LH_TOT', 'FSH'}
+        # fluxnet_variables = {'GPP', 'FPSN', 'NEE', 'ER', 'EFLX_LH_TOT', 'FSH'}
+        fluxnet_variables = {'GPP', 'NEE', 'ER'}
         vars_to_load = [var for var in mycase.postproc_vars if var in fluxnet_variables]
         
         if not vars_to_load:
@@ -355,7 +356,8 @@ if options.MCMC_only:
             mycase.obs_err = {}
             
             # Reload observations using the same logic as the "if not mycase.obs" block
-            fluxnet_variables = {'GPP', 'NEE', 'ER', 'FPSN', 'EFLX_LH_TOT', 'FSH'}
+            # fluxnet_variables = {'GPP', 'NEE', 'ER', 'FPSN', 'EFLX_LH_TOT', 'FSH'}
+            fluxnet_variables = {'GPP', 'NEE', 'ER'}
             vars_to_load = [var for var in mycase.postproc_vars if var in fluxnet_variables]
             
             if not vars_to_load:
