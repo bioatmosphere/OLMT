@@ -378,6 +378,11 @@ def ensemble_copy(self, ens_num):
                 param=self.getncvar(myfile, 'frm_flig')
                 param[parm_indices[pnum]]=1.0-parm_values[pnum]-parm_values[pnum-1]
                 ierr = self.putncvar(myfile, 'frm_flig', param)
+            # this assumes froott_leaf followed by froota_leaf
+            if (p == 'froota_leaf'):
+                param=self.getncvar(myfile, 'frootm_leaf')
+                param[parm_indices[pnum]]=1.0-parm_values[pnum]-parm_values[pnum-1]
+                ierr = self.putncvar(myfile, 'frootm_leaf', param)
         pnum = pnum+1
   
     #ensure FATES seed allocation paramters sum to one

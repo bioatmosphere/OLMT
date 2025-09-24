@@ -50,9 +50,9 @@ fates_pft      = 0          #Extract this PFT index from fates parameter file an
 pft_duplicates = 1          #Construct a file with n pfts, all using the same parameters as fates_pft
 
 #Run lengths/dates
-nyears_ad      =  50      #number of years for ad spinup
-nyears_final   =  50      #number of years for final spinup, SP run, or FATES C-only
-nyears_trans   =  20      #number of years for transient run 
+nyears_ad      =  200      #number of years for ad spinup
+nyears_final   =  500      #number of years for final spinup, SP run, or FATES C-only
+nyears_trans   =  165      #number of years for transient run 
 run_startyear  = 1850      #Starting year for transient run, SP run or FATES C-only
 
 
@@ -70,13 +70,13 @@ case_options['paramfile'] = '/ccsopen/home/6lw/models/OLMT/inputdata/tam_params.
 
 #--------------------ensemble options------------------------------------------------
 
-parm_list      = 'inputdata/PTTAM/us_moz_parm_list_tam'  #Set parameter list (leave blank for no ensemble)
+parm_list      = 'inputdata/PTTAM/US-MOz_parm_list_tam'  #Set parameter list (leave blank for no ensemble)
 nsamples       =  1000    #number of samples to run
 np_ensemble    =  384    #number of ensemble numbers to run in parallel (MUST be <= nsamples)
 ensemble_file  = ''     #File containing samples (if blank, OLMT will generate one)
 postproc_vars  = ['GPP','ER','NPP','NEE','BGNPP','NEP','NBP','TLAI','FPSN','SOILC','TOTECOSYSC','QFLX_EVAP_TOT','EFLX_LH_TOT','FSH','FROOTTC','FROOTAC','FROOTMC']  #Variables to automatically post-processpostproc_startyear = 1860
-postproc_startyear = 2010
-postproc_endyear   = 2012
+postproc_startyear = 2007
+postproc_endyear   = 2014
 postproc_freq      = 'annual'   #Can be daily, monthly, annual, hourly(not tested)
 
 #Observations to use in calibration (must match a model output variable in name/units, and the 

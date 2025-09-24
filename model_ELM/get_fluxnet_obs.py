@@ -42,25 +42,44 @@ def get_fluxnet_obs(self, site='US-UMB', tstep='monthly', ystart=-1, yend=9999, 
   # myvars = ['FPSN', 'FSH', 'EFLX_LH_TOT']
 
   myobsfiles = os.listdir(myobsdir + '/' + tstep + '/')
+ # variable_mapping = {
+ #     'NEE': ('NEE_CUT_REF', 'NEE_CUT_SE'),   # Net Ecosystem Exchange
+ #     'FPSN': ('GPP_NT_CUT_REF', 'GPP_NT_CUT_SE'),      # Gross Primary Production (photosynthesis)
+ #     'GPP': ('GPP_NT_CUT_REF', 'GPP_NT_CUT_SE'),       # Gross Primary Production
+ #     'ER': ('RECO_NT_CUT_REF', 'RECO_NT_CUT_SE'),      # Ecosystem Respiration
+ #     'EFLX_LH_TOT': ('LE_F_MDS', 'LE_RANDUNC'),        # Latent Heat Flux
+ #     'FSH': ('H_F_MDS', 'H_RANDUNC'),                  # Sensible Heat Flux
+ #     'TBOT': ('TA_F_MDS', 'NA'),                       # Air Temperature
+ #     'FSDS': ('SW_IN_F_MDS', 'NA'),                    # Shortwave Radiation
+ #     'WS': ('WS_F', 'NA'),                             # Wind Speed
+ #     'RAIN': ('P_F', 'NA'),                            # Precipitation
+ #     'VPD': ('VPD_F_MDS', 'NA')                        # Vapor Pressure Deficit
+ # }
   variable_mapping = {
-      'NEE': ('NEE_CUT_REF', 'NEE_CUT_REF_JOINTUNC'),   # Net Ecosystem Exchange
-      'FPSN': ('GPP_NT_CUT_REF', 'GPP_NT_CUT_SE'),      # Gross Primary Production (photosynthesis)
-      'GPP': ('GPP_NT_CUT_REF', 'GPP_NT_CUT_SE'),       # Gross Primary Production
-      'ER': ('RECO_NT_CUT_REF', 'RECO_NT_CUT_SE'),      # Ecosystem Respiration
-      'EFLX_LH_TOT': ('LE_F_MDS', 'LE_RANDUNC'),        # Latent Heat Flux
-      'FSH': ('H_F_MDS', 'H_RANDUNC'),                  # Sensible Heat Flux
-      'TBOT': ('TA_F_MDS', 'NA'),                       # Air Temperature
-      'FSDS': ('SW_IN_F_MDS', 'NA'),                    # Shortwave Radiation
-      'WS': ('WS_F', 'NA'),                             # Wind Speed
-      'RAIN': ('P_F', 'NA'),                            # Precipitation
-      'VPD': ('VPD_F_MDS', 'NA')                        # Vapor Pressure Deficit
+      'NEE': ('NEE_CUT_REF', 'NEE_CUT_REF_JOINTUNC', '',''),   # Net Ecosystem Exchange
+      'FPSN': ('GPP_NT_CUT_REF', 'GPP_NT_CUT_SE', '',''),      # Gross Primary Production (photosynthesis)
+      'GPP': ('GPP_NT_CUT_REF', 'GPP_NT_CUT_SE', 'GPP_NT_CUT_05', 'GPP_NT_CUT_95'),       # Gross Primary Production
+      'ER': ('RECO_NT_CUT_REF', 'RECO_NT_CUT_SE','RECO_NT_CUT_05','RECO_NT_CUT_95'),      # Ecosystem Respiration
+      'EFLX_LH_TOT': ('LE_F_MDS', 'LE_RANDUNC', '',''),        # Latent Heat Flux
+      'FSH': ('H_F_MDS', 'H_RANDUNC', '',''),                  # Sensible Heat Flux
+      'TBOT': ('TA_F_MDS', 'NA', '',''),                       # Air Temperature
+      'FSDS': ('SW_IN_F_MDS', 'NA', '',''),                    # Shortwave Radiation
+      'WS': ('WS_F', 'NA', '',''),                             # Wind Speed
+      'RAIN': ('P_F', 'NA', '',''),                            # Precipitation
+      'VPD': ('VPD_F_MDS', 'NA', '','')                        # Vapor Pressure Deficit
   }
   vars_elm = list(variable_mapping.keys())
   vars_fluxnet = [variable_mapping[var][0] for var in vars_elm]
   vars_unc = [variable_mapping[var][1] for var in vars_elm]
-  
+  vars_05 = [variable_mapping[var][2] for var in vars_elm]
+  vars_95 = [variable_mapping[var][3] for var in vars_elm]
+
   vars_qc = (['NEE_CUT_REF_QC'] * 4 + 
              ['LE_F_MDS_QC', 'H_F_MDS_QC', 'TA_F_MDS_QC', 'SW_IN_F_MDS_QC', 'WS_F_QC', 'P_F_QC', 'VPD_F_MDS_QC'])
+
+  # Initialize confidence interval dictionaries
+  myobs_05 = {}
+  myobs_95 = {}
 
   # ndaysm = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]  # unused variable
   if tstep == 'monthly':
@@ -95,6 +114,8 @@ def get_fluxnet_obs(self, site='US-UMB', tstep='monthly', ystart=-1, yend=9999, 
               nrows = (yend - ystart + 1) * nstep
               myobs = np.zeros([nrows], float)
               myobs_err = np.zeros([nrows], float)
+              myobs_05_array = np.zeros([nrows], float)
+              myobs_95_array = np.zeros([nrows], float)
               myobs_in = open(myobsfile)
               thisrow = 0
               thisob = 0
@@ -111,16 +132,28 @@ def get_fluxnet_obs(self, site='US-UMB', tstep='monthly', ystart=-1, yend=9999, 
                                   tempob = float(myvals[thiscol])
                               if h.strip() == vars_unc[vnum]:
                                   tempob_err = float(myvals[thiscol])
+                              if h.strip() == vars_05[vnum] and vars_05[vnum] != '':
+                                  tempob_err05 = float(myvals[thiscol])
+                              if h.strip() == vars_95[vnum] and vars_95[vnum] != '':
+                                  tempob_err95 = float(myvals[thiscol])
                               if h.strip() == vars_qc[vnum]:
-                                  if float(myvals[thiscol]) > 0.8:
+                                  if float(myvals[thiscol]) > 0.2:
                                       isgood = True  # only advance if quality flag > 80%
                               thiscol = thiscol + 1
                           if isgood:
                               myobs[thisob] = tempob
-                              myobs_err[thisob] = tempob_err
+                              #myobs_err[thisob] = tempob_err * 10
+                              percentile_range = tempob_err95 - tempob_err05
+                              std_approx = percentile_range / 3.29
+                              #valid_approx = std_approx.dropna()
+                              myobs_err[thisob] = std_approx
+                              myobs_05_array[thisob] = tempob_err05
+                              myobs_95_array[thisob] = tempob_err95
                           else:
                               myobs[thisob] = -9999
                               myobs_err[thisob] = -9999
+                              myobs_05_array[thisob] = -9999
+                              myobs_95_array[thisob] = -9999
                           thisob = thisob + 1
                   thisrow = thisrow + 1
               # Check if postproc_startyear and postproc_endyear are defined for subsetting
@@ -132,10 +165,16 @@ def get_fluxnet_obs(self, site='US-UMB', tstep='monthly', ystart=-1, yend=9999, 
                   # Subset the arrays
                   self.obs[vars_elm[vnum]] = myobs[postproc_start_idx:postproc_end_idx]
                   self.obs_err[vars_elm[vnum]] = myobs_err[postproc_start_idx:postproc_end_idx]
-                  
+                  myobs_05[vars_elm[vnum]] = myobs_05_array[postproc_start_idx:postproc_end_idx]
+                  myobs_95[vars_elm[vnum]] = myobs_95_array[postproc_start_idx:postproc_end_idx]
+
                   print(f"Subset observations from {self.postproc_startyear} to {self.postproc_endyear}")
                   print(f"Using indices {postproc_start_idx}:{postproc_end_idx} from total length {len(myobs)}")
               else:
                   # Use full arrays if postproc years not defined
                   self.obs[vars_elm[vnum]] = myobs
                   self.obs_err[vars_elm[vnum]] = myobs_err
+                  myobs_05[vars_elm[vnum]] = myobs_05_array
+                  myobs_95[vars_elm[vnum]] = myobs_95_array
+
+  return myobs_05, myobs_95

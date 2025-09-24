@@ -13,4 +13,5 @@
 
 ulimit -n 2024
 cd /autofs/nccsopen-svm1_home/6lw/models/OLMT/runscripts/..
-./manage_ensemble.py --case 20250624_US-MOz_ICB20TRCNPRDCTCBC --MCMC_only
+#./manage_ensemble.py --case 20250708_US-Ho1_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+./manage_ensemble.py --case 20250910_US-MOz_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs

@@ -2844,7 +2844,7 @@ def multi_chain_convergence_diagnostics(self, chains):
     
     return diagnostics
 
-def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps=10, default_output=None):
+def MCMC(self, parms, myvars, nevals,myobs_05,myobs_95,mcmc_type='uniform', nburn=5000, burnsteps=10, default_output=None):
     """
     Enhanced custom Metropolis-Hastings MCMC implementation with intelligent burn-in.
     
@@ -2861,7 +2861,7 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
     enable_delayed_rejection = getattr(self, '_enable_delayed_rejection', False)
     enable_block_sampling = getattr(self, '_enable_block_sampling', True)
     enable_parallel_tempering = getattr(self, '_enable_parallel_tempering', False)
-    enable_auto_convergence = getattr(self, '_enable_auto_convergence', True)
+    enable_auto_convergence = getattr(self, '_enable_auto_convergence', False)
     enable_auto_stopping = enable_auto_convergence  # Same setting, different variable name used in code
     
     UQ_output='./UQ_output/'+self.casename
@@ -3745,10 +3745,11 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
               output[v][:,i] = np.zeros(self.nobs[v])  # or some default value
         #if (i % 1000 == 0):
         #    print(' -- '+str(i)+' --\n')
-
+        actual_chain_length = min(i+1, chain.shape[1])
+    
     #print("Computing statistics")
     burnin_end_idx = int(nburn*burnsteps)
-    actual_chain_length = chain.shape[1]
+    # actual_chain_length = chain.shape[1]
     
     # Handle case where early stopping occurred before burn-in completed
     if burnin_end_idx >= actual_chain_length:
@@ -3860,15 +3861,29 @@ def MCMC(self, parms, myvars, nevals, mcmc_type='uniform', nburn=1000, burnsteps
       fig = plt.figure()
       ax=fig.add_subplot(111)
       x = np.cumsum(np.ones([self.nobs[v]],float))
+      # observations with confidence intervals
+      #obs_plot = np.array(self.obs[v].copy())
+      #obs_plot[obs_plot < -9000] = np.nan
+      #obs_err_plot = np.array(self.obs_err[v].copy())
+      #obs_err_plot[obs_err_plot < -9000] = np.nan
+      #ax.errorbar(x,obs_plot, yerr=obs_err_plot, label='Observations')
+      # observations with confidence intervals
       obs_plot = np.array(self.obs[v].copy())
-      obs_plot[obs_plot < -9000] = np.NaN
-      obs_err_plot = np.array(self.obs_err[v].copy())
-      obs_err_plot[obs_err_plot < -9000] = np.NaN
-      ax.errorbar(x,obs_plot, yerr=obs_err_plot, label='Observations')
+      obs_plot[obs_plot < -9000] = np.nan
+      myobs_05_plot = np.array(myobs_05[v].copy())
+      myobs_05_plot[myobs_05_plot < -9000] = np.nan
+      myobs_95_plot = np.array(myobs_95[v].copy())
+      myobs_95_plot[myobs_95_plot < -9000] = np.nan
+      ax.plot(x, obs_plot, 'bo', label='Observations')
+      ax.plot(x, myobs_05_plot, 'b--', label='Obs 90% CI')
+      ax.plot(x, myobs_95_plot, 'b--')
+
+      # model best and 95% CI
       ax.plot(x,output_best[v].flatten(),'r', label = 'Model best')
-      ax.plot(x,output_sorted[v][:,int(0.025*(nevals-nburn*burnsteps))].flatten(), \
+      ax.plot(x,output_sorted[v][:,int(0.05*(nevals-nburn*burnsteps))].flatten(), \
                  'k--', label='Model 95% CI')
-      ax.plot(x,output_sorted[v][:,int(0.975*(nevals-nburn*burnsteps))].flatten(),'k--')
+      ax.plot(x,output_sorted[v][:,int(0.95*(nevals-nburn*burnsteps))].flatten(),'k--')
+      
       #if (options.parm_default != ''):
       #  ax.plot(x,default_output[thisob], 'g', label='Default')
       #  #plt.xlabel(model.xlabel)

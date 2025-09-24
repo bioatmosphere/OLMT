@@ -257,19 +257,28 @@ if options.MCMC_only:
             sys.exit(1)
             
         print("Loading FLUXNET observations...")
-        # fluxnet_variables = {'GPP', 'FPSN', 'NEE', 'ER', 'EFLX_LH_TOT', 'FSH'}
-        fluxnet_variables = {'GPP', 'NEE', 'ER'}
+
+        #fluxnet_variables = {'GPP', 'FPSN', 'NEE', 'ER', 'EFLX_LH_TOT', 'FSH'}
+        fluxnet_variables = {'GPP', 'ER'}
+
         vars_to_load = [var for var in mycase.postproc_vars if var in fluxnet_variables]
         
         if not vars_to_load:
             print(f"Error: No FLUXNET-compatible variables in {mycase.postproc_vars}")
             sys.exit(1)
-            
+        
+        # Initialize confidence interval dictionaries once
+        myobs_05_combined = {}
+        myobs_95_combined = {}
+
         loaded_count = 0
         for var in vars_to_load:
             try:
-                mycase.get_fluxnet_obs(site=mycase.site, fluxnet_var=var, myobsdir=obs_dir, 
+                myobs_05_var, myobs_95_var = mycase.get_fluxnet_obs(site=mycase.site, fluxnet_var=var, myobsdir=obs_dir, 
                                       tstep=options.tstep, ystart=-1, yend=9999)
+                # Accumulate results across multiple calls
+                myobs_05_combined.update(myobs_05_var)
+                myobs_95_combined.update(myobs_95_var)
                 loaded_count += 1
                 print(f"✓ Loaded {var}")
             except Exception as e:
@@ -357,7 +366,8 @@ if options.MCMC_only:
             
             # Reload observations using the same logic as the "if not mycase.obs" block
             # fluxnet_variables = {'GPP', 'NEE', 'ER', 'FPSN', 'EFLX_LH_TOT', 'FSH'}
-            fluxnet_variables = {'GPP', 'NEE', 'ER'}
+            fluxnet_variables = {'GPP', 'ER'}
+
             vars_to_load = [var for var in mycase.postproc_vars if var in fluxnet_variables]
             
             if not vars_to_load:
@@ -365,11 +375,18 @@ if options.MCMC_only:
                 sys.exit(1)
                 
             print(f"Loading FLUXNET observations for variables: {vars_to_load}")
+            
+            # Initialize confidence interval dictionaries once
+            myobs_05_combined = {}
+            myobs_95_combined = {}
             loaded_count = 0
             for var in vars_to_load:
                 try:
-                    mycase.get_fluxnet_obs(site=mycase.site, fluxnet_var=var, myobsdir=obs_dir, 
+                    myobs_05_var, myobs_95_var = mycase.get_fluxnet_obs(site=mycase.site, fluxnet_var=var, myobsdir=obs_dir, 
                                           tstep=options.tstep, ystart=-1, yend=9999)
+                    # Accumulate results across multiple calls
+                    myobs_05_combined.update(myobs_05_var)
+                    myobs_95_combined.update(myobs_95_var)
                     loaded_count += 1
                     print(f"✓ Loaded {var}")
                 except Exception as e:
@@ -381,6 +398,9 @@ if options.MCMC_only:
         else:
             print("No obs_dir specified, validating existing observations...")
             vars_to_load = mycase.postproc_vars
+            # Initialize empty confidence interval dictionaries for existing observations
+            myobs_05_combined = {}
+            myobs_95_combined = {}
         
         # Apply same validation logic as the loading case
         print("\n=== Observation Quality Summary ===")
@@ -461,7 +481,7 @@ if options.MCMC_only:
     print(f"Using variables: {valid_vars_for_mcmc}")
     # Default starting parameters (midpoint between min and max)
     parms = (np.array(mycase.ensemble_pmax) + np.array(mycase.ensemble_pmin)) / 2
-    mycase.MCMC(parms, valid_vars_for_mcmc, 100000)
+    mycase.MCMC(parms, valid_vars_for_mcmc, 500000,myobs_05=myobs_05_combined, myobs_95=myobs_95_combined)
     
     # Save results
     mycase.create_pkl(outdir=mycase.OLMTdir+'/pklfiles/')
