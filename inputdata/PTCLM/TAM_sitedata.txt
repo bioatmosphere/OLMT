@@ -1,3 +1,7 @@
 site_code,name,state,lon,lat,elev,startyear,endyear,alignyear
 US-Ho1,"Howland Forest Main",ME,-68.7402,45.2041,60,1996,2018,1851
 US-MOz,"Missouri Ozark Site",MO,-92.2,38.7441,291.4,2004,2014,1851
+US-Var,"Vaira Ranch-Ione",CA,-120.9507,38.4067,129,2000,2007,1851
+FI-Hyy,"Hyytiala",FI,24.2948,61.8474,181,1996,2014,1851
+BR-Sa1,"Santarem-Km67-Primary Forest",BR,-54.9589,-2.8567,88,2002,2011,1851
+CA-Oas,"Saskatchewan",CAN,-106.1978,53.6289,530,1996,2010,1851

@@ -1,3 +1,7 @@
 site_code,soil_depth,n_layers,layer_depth,layer_sand%,layer_clay%
 US-Ho1,0.8,1,-999,50.3,15.9
 US-MOz,-999,1,-999,46.38,24.68
+US-Var,-999,1,-999,50.43,25.01
+FI-Hyy,-999,1,-999,45,16
+BR-Sa1,-999,1,-999,48,32
+CA-Oas,-999,1,-999,27,32
