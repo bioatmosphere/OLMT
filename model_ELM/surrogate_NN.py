@@ -84,7 +84,7 @@ def train_surrogate(self,myvars):
       'alpha': [0.0001,0.01,0.05],
       'learning_rate': ['constant','adaptive'],
     }
-    clf = MLPRegressor(max_iter=1000, early_stopping=True, validation_fraction=0.2, \
+    clf = MLPRegressor(max_iter=2000, early_stopping=True, validation_fraction=0.2, \
           n_iter_no_change=10, random_state=42)
     # Hyperparameter tuning using GridSearchCV
     grid = GridSearchCV(clf, param_grid, n_jobs= -1, cv=5)

@@ -60,6 +60,8 @@ def get_fluxnet_obs(self, site='US-UMB', tstep='monthly', ystart=-1, yend=9999, 
       'FPSN': ('GPP_NT_CUT_REF', 'GPP_NT_CUT_SE', '',''),      # Gross Primary Production (photosynthesis)
       'GPP': ('GPP_NT_CUT_REF', 'GPP_NT_CUT_SE', 'GPP_NT_CUT_05', 'GPP_NT_CUT_95'),       # Gross Primary Production
       'ER': ('RECO_NT_CUT_REF', 'RECO_NT_CUT_SE','RECO_NT_CUT_05','RECO_NT_CUT_95'),      # Ecosystem Respiration
+      #'GPP': ('GPP_NT_VUT_REF', 'NEE_VUT_REF_RANDUNC', 'GPP_NT_VUT_25', 'GPP_NT_VUT_75'),       # Gross Primary Production
+      #'ER': ('RECO_NT_VUT_REF', 'NEE_VUT_REF_RANDUNC','RECO_NT_VUT_25','RECO_NT_VUT_75'),      # Ecosystem Respiration
       'EFLX_LH_TOT': ('LE_F_MDS', 'LE_RANDUNC', '',''),        # Latent Heat Flux
       'FSH': ('H_F_MDS', 'H_RANDUNC', '',''),                  # Sensible Heat Flux
       'TBOT': ('TA_F_MDS', 'NA', '',''),                       # Air Temperature
@@ -76,6 +78,9 @@ def get_fluxnet_obs(self, site='US-UMB', tstep='monthly', ystart=-1, yend=9999, 
 
   vars_qc = (['NEE_CUT_REF_QC'] * 4 + 
              ['LE_F_MDS_QC', 'H_F_MDS_QC', 'TA_F_MDS_QC', 'SW_IN_F_MDS_QC', 'WS_F_QC', 'P_F_QC', 'VPD_F_MDS_QC'])
+
+  #vars_qc = (['NEE_VUT_REF_QC'] * 4 +
+  #           ['LE_F_MDS_QC', 'H_F_MDS_QC', 'TA_F_MDS_QC', 'SW_IN_F_MDS_QC', 'WS_F_QC', 'P_F_QC', 'VPD_F_MDS_QC'])
 
   # Initialize confidence interval dictionaries
   myobs_05 = {}
@@ -145,6 +150,7 @@ def get_fluxnet_obs(self, site='US-UMB', tstep='monthly', ystart=-1, yend=9999, 
                               #myobs_err[thisob] = tempob_err * 10
                               percentile_range = tempob_err95 - tempob_err05
                               std_approx = percentile_range / 3.29
+                              #std_approx = percentile_range / 1.349
                               #valid_approx = std_approx.dropna()
                               myobs_err[thisob] = std_approx
                               myobs_05_array[thisob] = tempob_err05

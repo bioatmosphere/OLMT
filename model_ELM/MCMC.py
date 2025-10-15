@@ -2366,7 +2366,7 @@ def calc_posterior(self,parms,myvars):
           if var in flux_vars:
               # Convert from gC/m²/s to gC/m²/year
               # Multiply by seconds per year: 365.25 * 24 * 3600 = 31,557,600 seconds/year
-              output[var] = output[var] * 31557600.0
+              output[var] = output[var] * 31536000.0
       
       # Calculate likelihood for each variable
       for v in myvars:
