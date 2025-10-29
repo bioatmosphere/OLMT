@@ -6,6 +6,17 @@ import datetime
 
 def read_parm_list(self, parm_list=''):
     """Read the parameter list file
+
+    Supports two formats:
+    1. Legacy format (4 columns): parameter_name pft min max
+    2. Extended format (5+ columns): parameter_name pft dist_type param1 param2 [param3 param4]
+
+    Supported distributions:
+    - uniform: min max
+    - normal: mean std [min max] (truncated if bounds provided)
+    - lognormal: log_mean log_std [min max]
+    - beta: alpha beta min max
+    - gamma: shape scale [min max]
     """
 
     os.chdir(self.OLMTdir)
@@ -15,13 +26,106 @@ def read_parm_list(self, parm_list=''):
         self.ensemble_pfts=[]
         self.ensemble_pmin=[]
         self.ensemble_pmax=[]
+        self.ensemble_dist_type=[]  # Distribution type for each parameter
+        self.ensemble_dist_params=[]  # Additional distribution parameters
+
         for s in myfile:
-            if (not '#' in s[0:3]):
+            if (not '#' in s[0:3] and s.strip()):  # Skip comments and empty lines
+              # Remove inline comments
+              if '#' in s:
+                  s = s[:s.index('#')]
               vals = s.split()
+
+              if len(vals) < 4:
+                  continue  # Skip malformed lines
+
               self.ensemble_parms.append(vals[0].strip())
               self.ensemble_pfts.append(int(vals[1].strip()))
-              self.ensemble_pmin.append(float(vals[2].strip()))
-              self.ensemble_pmax.append(float(vals[3].strip()))
+
+              # Detect format: if vals[2] is a known distribution type, use extended format
+              known_dists = ['uniform', 'normal', 'truncnorm', 'lognormal', 'beta', 'gamma']
+
+              if len(vals) >= 5 and vals[2].lower() in known_dists:
+                  # Extended format: parameter pft dist_type param1 param2 [param3 param4]
+                  dist_type = vals[2].lower()
+                  self.ensemble_dist_type.append(dist_type)
+
+                  if dist_type == 'uniform':
+                      min_val = float(vals[3])
+                      max_val = float(vals[4])
+                      self.ensemble_pmin.append(min_val)
+                      self.ensemble_pmax.append(max_val)
+                      self.ensemble_dist_params.append({'min': min_val, 'max': max_val})
+
+                  elif dist_type in ['normal', 'truncnorm']:
+                      mean = float(vals[3])
+                      std = float(vals[4])
+                      if len(vals) >= 7:
+                          # Truncated normal with bounds
+                          min_val = float(vals[5])
+                          max_val = float(vals[6])
+                      else:
+                          # Use mean ± 4*std as default bounds
+                          min_val = mean - 4 * std
+                          max_val = mean + 4 * std
+                      self.ensemble_pmin.append(min_val)
+                      self.ensemble_pmax.append(max_val)
+                      self.ensemble_dist_params.append({
+                          'mean': mean, 'std': std, 'min': min_val, 'max': max_val
+                      })
+
+                  elif dist_type == 'lognormal':
+                      log_mean = float(vals[3])
+                      log_std = float(vals[4])
+                      if len(vals) >= 7:
+                          min_val = float(vals[5])
+                          max_val = float(vals[6])
+                      else:
+                          # Use exponential of log bounds
+                          min_val = np.exp(log_mean - 4 * log_std)
+                          max_val = np.exp(log_mean + 4 * log_std)
+                      self.ensemble_pmin.append(min_val)
+                      self.ensemble_pmax.append(max_val)
+                      self.ensemble_dist_params.append({
+                          'log_mean': log_mean, 'log_std': log_std, 'min': min_val, 'max': max_val
+                      })
+
+                  elif dist_type == 'beta':
+                      alpha = float(vals[3])
+                      beta = float(vals[4])
+                      min_val = float(vals[5])
+                      max_val = float(vals[6])
+                      self.ensemble_pmin.append(min_val)
+                      self.ensemble_pmax.append(max_val)
+                      self.ensemble_dist_params.append({
+                          'alpha': alpha, 'beta': beta, 'min': min_val, 'max': max_val
+                      })
+
+                  elif dist_type == 'gamma':
+                      shape = float(vals[3])
+                      scale = float(vals[4])
+                      if len(vals) >= 7:
+                          min_val = float(vals[5])
+                          max_val = float(vals[6])
+                      else:
+                          # Use gamma distribution percentiles as bounds
+                          min_val = 0.0
+                          max_val = shape * scale * 4  # Rough upper bound
+                      self.ensemble_pmin.append(min_val)
+                      self.ensemble_pmax.append(max_val)
+                      self.ensemble_dist_params.append({
+                          'shape': shape, 'scale': scale, 'min': min_val, 'max': max_val
+                      })
+
+              else:
+                  # Legacy format: parameter pft min max (uniform distribution)
+                  self.ensemble_dist_type.append('uniform')
+                  min_val = float(vals[2].strip())
+                  max_val = float(vals[3].strip())
+                  self.ensemble_pmin.append(min_val)
+                  self.ensemble_pmax.append(max_val)
+                  self.ensemble_dist_params.append({'min': min_val, 'max': max_val})
+
         myfile.close()
     else:
         print('parm_list file '+parm_list+' does not exist.  Exiting')

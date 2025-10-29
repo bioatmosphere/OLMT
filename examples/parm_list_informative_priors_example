@@ -1,0 +1,56 @@
+# Example parameter list file with informative priors
+# This demonstrates the extended format supporting multiple distribution types
+#
+# Format:
+# parameter_name  pft  dist_type  param1  param2  [param3  param4]
+#
+# Distribution types:
+# - uniform:    min max
+# - normal:     mean std [min max] (truncated if bounds provided)
+# - truncnorm:  mean std min max (alias for normal with bounds)
+# - lognormal:  log_mean log_std [min max]
+# - beta:       alpha beta min max (scaled to [min, max])
+# - gamma:      shape scale [min max]
+#
+# Legacy format (uniform): parameter_name pft min max
+
+# Example 1: Uniform prior (legacy format - backward compatible)
+bfact           23  0.05    0.15
+
+# Example 2: Uniform prior (explicit)
+fleafcn         23  uniform     15.0    65.0
+
+# Example 3: Normal prior with truncation (common for physical parameters)
+# Mean=40, Std=10, bounded to [15, 65]
+graincn         23  normal      40.0    10.0    15.0    65.0
+
+# Example 4: Truncated normal (explicit, same as normal with bounds)
+declfact        23  truncnorm   1.1375  0.2     0.7     1.575
+
+# Example 5: Lognormal prior (for strictly positive parameters with right skew)
+# Log-mean=3.5, Log-std=0.5, with optional bounds
+allconsl        23  lognormal   1.386   0.5     1.0     5.0
+
+# Example 6: Beta prior (for parameters bounded to a specific range)
+# Alpha=2, Beta=5 gives left-skewed distribution, scaled to [0.02, 0.07]
+slatop          23  beta        2.0     5.0     0.02    0.07
+
+# Example 7: Gamma prior (for positive parameters with flexible shapes)
+# Shape=5, Scale=20, bounded to [20, 140]
+fstemcn         23  gamma       5.0     20.0    20.0    140.0
+
+# Example 8: Normal prior without explicit bounds (uses mean ± 4*std)
+# Mean=0.675, Std=0.04 → bounds will be approximately [0.515, 0.835]
+grnfill         23  normal      0.675   0.04
+
+# Example 9: Mix of different priors for fine-grained control
+arooti          23  uniform     0.25    0.5
+arootf          23  beta        3.0     3.0     0.0     0.25
+leafcn          23  normal      16.5    4.0     8.0     25.0
+frootcn         23  truncnorm   45.0    7.5     30.0    60.0
+astemf          23  beta        2.0     8.0     0.0     0.3
+fleafi          23  beta        5.0     2.0     0.6     0.9
+lfemerg         23  lognormal   -3.5    0.4     0.01    0.05
+allconss        23  lognormal   1.099   0.6     1.0     5.0
+livewdcn        23  gamma       3.0     10.0    15.0    50.0
+laimx           23  normal      5.0     1.0     3.0     7.0

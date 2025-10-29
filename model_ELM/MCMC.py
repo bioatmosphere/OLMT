@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.stats import norm
+from scipy.stats import norm, truncnorm, lognorm, beta, gamma
 from scipy.signal import correlate
 from scipy.linalg import cholesky, LinAlgError
 import model_surrogate as models
@@ -20,6 +20,153 @@ try:
 except ImportError:
     PYMC3_AVAILABLE = False
     print("PyMC3 not available. Using custom MCMC implementation only.")
+
+# ======================================================================
+# Prior Distribution Functions
+# ======================================================================
+
+def calc_log_prior(parm_value, dist_type, dist_params, bounds_only=False):
+    """
+    Calculate log-prior probability for a parameter value.
+
+    Parameters
+    ----------
+    parm_value : float
+        The parameter value to evaluate.
+    dist_type : str
+        Distribution type ('uniform', 'normal', 'truncnorm', 'lognormal', 'beta', 'gamma').
+    dist_params : dict
+        Distribution parameters.
+    bounds_only : bool
+        If True, only check hard bounds (for backward compatibility).
+
+    Returns
+    -------
+    log_prior : float
+        Log-prior probability density. Returns -np.inf for out-of-bounds values.
+    """
+
+    min_val = dist_params.get('min', -np.inf)
+    max_val = dist_params.get('max', np.inf)
+
+    # Check hard bounds first
+    if parm_value < min_val or parm_value > max_val:
+        return -np.inf
+
+    # If bounds_only, return flat prior within bounds (backward compatible)
+    if bounds_only or dist_type == 'uniform':
+        return 0.0  # Log(1.0) = 0 for uniform prior
+
+    try:
+        if dist_type in ['normal', 'truncnorm']:
+            mean = dist_params['mean']
+            std = dist_params['std']
+
+            # Truncated normal distribution
+            a = (min_val - mean) / std  # Standardized lower bound
+            b = (max_val - mean) / std  # Standardized upper bound
+            log_prior = truncnorm.logpdf(parm_value, a, b, loc=mean, scale=std)
+
+        elif dist_type == 'lognormal':
+            log_mean = dist_params['log_mean']
+            log_std = dist_params['log_std']
+
+            # Lognormal distribution (with truncation if bounds specified)
+            if parm_value <= 0:
+                return -np.inf
+
+            # Calculate log-pdf for lognormal
+            log_prior = lognorm.logpdf(parm_value, s=log_std, scale=np.exp(log_mean))
+
+            # Apply truncation if needed (renormalize)
+            # This is approximate - proper truncation would require numerical integration
+
+        elif dist_type == 'beta':
+            alpha = dist_params['alpha']
+            beta_param = dist_params['beta']
+
+            # Transform parameter to [0,1] for standard beta distribution
+            x_std = (parm_value - min_val) / (max_val - min_val)
+
+            if x_std <= 0 or x_std >= 1:
+                return -np.inf
+
+            log_prior = beta.logpdf(x_std, alpha, beta_param)
+            # Account for Jacobian of transformation
+            log_prior -= np.log(max_val - min_val)
+
+        elif dist_type == 'gamma':
+            shape = dist_params['shape']
+            scale = dist_params['scale']
+
+            # Gamma distribution (with optional truncation)
+            log_prior = gamma.logpdf(parm_value, a=shape, scale=scale)
+
+            # Apply truncation if needed (approximate)
+
+        else:
+            # Unknown distribution type - fall back to uniform
+            log_prior = 0.0
+
+    except (ValueError, KeyError, ZeroDivisionError):
+        # If calculation fails, return -inf (reject)
+        return -np.inf
+
+    # Check for NaN or invalid values
+    if not np.isfinite(log_prior):
+        return -np.inf
+
+    return log_prior
+
+
+def calc_log_prior_all(parms, ensemble_dist_type, ensemble_dist_params,
+                        ensemble_pmin, ensemble_pmax, use_informative_priors=True):
+    """
+    Calculate total log-prior for all parameters.
+
+    Parameters
+    ----------
+    parms : array-like
+        Parameter values.
+    ensemble_dist_type : list
+        Distribution types for each parameter.
+    ensemble_dist_params : list
+        Distribution parameters for each parameter.
+    ensemble_pmin : list
+        Minimum bounds for each parameter.
+    ensemble_pmax : list
+        Maximum bounds for each parameter.
+    use_informative_priors : bool
+        If False, use uniform priors only (backward compatibility).
+
+    Returns
+    -------
+    log_prior_total : float
+        Total log-prior (sum of individual log-priors).
+    """
+
+    log_prior_total = 0.0
+
+    for j in range(len(parms)):
+        # Quick bounds check for efficiency
+        if parms[j] < ensemble_pmin[j] or parms[j] > ensemble_pmax[j]:
+            return -np.inf
+
+        # Calculate informative prior if enabled
+        if use_informative_priors and len(ensemble_dist_type) > j:
+            log_prior = calc_log_prior(
+                parms[j],
+                ensemble_dist_type[j],
+                ensemble_dist_params[j],
+                bounds_only=not use_informative_priors
+            )
+            log_prior_total += log_prior
+
+            if not np.isfinite(log_prior_total):
+                return -np.inf
+
+    return log_prior_total
+
 
 # ======================================================================
 # Effective Sample Size (ESS) Calculation Functions
@@ -2344,23 +2491,41 @@ def calc_posterior(self,parms,myvars):
         Parameter values for which to calculate the posterior.
     myvars : list
         List of variable names for which to calculate the posterior.
-    
+
     Returns
     -------
     post : float
-        The posterior value.
+        The posterior value (log-posterior).
     output : dict
         The model output for the specified variables.
     """
 
-    #line = 0
-    #Uniform priors
-    prior = 1.0
-    for j in range(0,self.nparms_ensemble):
-        if (parms[j] < self.ensemble_pmin[j] or parms[j] > self.ensemble_pmax[j]):
-            prior = 0.0
-    post = prior
-    if (prior > 0.0):
+    # Calculate log-prior using informative priors if available
+    use_informative = (hasattr(self, 'ensemble_dist_type') and
+                      hasattr(self, 'ensemble_dist_params') and
+                      len(self.ensemble_dist_type) == self.nparms_ensemble)
+
+    if use_informative:
+        log_prior = calc_log_prior_all(
+            parms,
+            self.ensemble_dist_type,
+            self.ensemble_dist_params,
+            self.ensemble_pmin,
+            self.ensemble_pmax,
+            use_informative_priors=True
+        )
+    else:
+        # Fallback to simple uniform priors (backward compatibility)
+        log_prior = 0.0
+        for j in range(0, self.nparms_ensemble):
+            if (parms[j] < self.ensemble_pmin[j] or parms[j] > self.ensemble_pmax[j]):
+                log_prior = -np.inf
+                break
+
+    # Initialize posterior with prior
+    post = log_prior
+
+    if np.isfinite(log_prior):
       # Run surrogate model to get predictions
       output = self.run_surrogate(parms.reshape(1, -1), myvars)
       
@@ -2408,8 +2573,9 @@ def calc_posterior(self,parms,myvars):
               # Add to total posterior
               post += np.sum(log_likelihood)
     else:
-        post = -9999999
-        output={}
+        # Prior is zero (out of bounds or invalid)
+        post = -np.inf
+        output = {}
     #print(post)
     return(post, output)
 
@@ -2457,15 +2623,115 @@ def MCMC_pymc3(self, parms, myvars, nevals, tune=1000, target_accept=0.9, sample
             return -1e10
     
     with pm.Model() as model:
-        # Define uniform priors for parameters
-        params = pm.Uniform('params', 
-                           lower=self.ensemble_pmin, 
-                           upper=self.ensemble_pmax, 
-                           shape=self.nparms_ensemble,
-                           testval=parms)
-        
+        # Define priors for parameters
+        # Check if informative priors are available
+        use_informative = (hasattr(self, 'ensemble_dist_type') and
+                          hasattr(self, 'ensemble_dist_params') and
+                          len(self.ensemble_dist_type) == self.nparms_ensemble)
+
+        if use_informative:
+            # Create list to hold parameter variables
+            param_list = []
+
+            for j in range(self.nparms_ensemble):
+                dist_type = self.ensemble_dist_type[j]
+                dist_params = self.ensemble_dist_params[j]
+                pname = self.ensemble_parms[j] if j < len(self.ensemble_parms) else f'param_{j}'
+
+                if dist_type == 'uniform':
+                    p = pm.Uniform(f'p_{j}',
+                                  lower=dist_params['min'],
+                                  upper=dist_params['max'],
+                                  testval=parms[j])
+
+                elif dist_type in ['normal', 'truncnorm']:
+                    # Truncated Normal
+                    p = pm.TruncatedNormal(f'p_{j}',
+                                          mu=dist_params['mean'],
+                                          sigma=dist_params['std'],
+                                          lower=dist_params['min'],
+                                          upper=dist_params['max'],
+                                          testval=parms[j])
+
+                elif dist_type == 'lognormal':
+                    # Lognormal (bounded)
+                    p = pm.Lognormal(f'p_{j}',
+                                    mu=dist_params['log_mean'],
+                                    sigma=dist_params['log_std'],
+                                    testval=parms[j])
+                    # Note: PyMC3 Lognormal doesn't support bounds directly
+                    # Bounds will be enforced in likelihood function
+
+                elif dist_type == 'beta':
+                    # Beta distribution (scaled to [min, max])
+                    alpha = dist_params['alpha']
+                    beta_param = dist_params['beta']
+                    min_val = dist_params['min']
+                    max_val = dist_params['max']
+
+                    # Standard beta on [0,1]
+                    p_std = pm.Beta(f'p_std_{j}', alpha=alpha, beta=beta_param,
+                                   testval=(parms[j] - min_val) / (max_val - min_val))
+                    # Scale to [min, max]
+                    p = pm.Deterministic(f'p_{j}', min_val + (max_val - min_val) * p_std)
+
+                elif dist_type == 'gamma':
+                    # Gamma distribution (bounded)
+                    p = pm.Gamma(f'p_{j}',
+                                alpha=dist_params['shape'],
+                                beta=1.0/dist_params['scale'],  # PyMC3 uses rate = 1/scale
+                                testval=parms[j])
+                    # Note: Bounds will be enforced in likelihood function
+
+                else:
+                    # Fallback to uniform
+                    p = pm.Uniform(f'p_{j}',
+                                  lower=self.ensemble_pmin[j],
+                                  upper=self.ensemble_pmax[j],
+                                  testval=parms[j])
+
+                param_list.append(p)
+
+            # Stack parameters into a single vector
+            params = pm.math.stack(param_list)
+
+        else:
+            # Use uniform priors (backward compatibility)
+            params = pm.Uniform('params',
+                               lower=self.ensemble_pmin,
+                               upper=self.ensemble_pmax,
+                               shape=self.nparms_ensemble,
+                               testval=parms)
+
         # Define likelihood using custom log-likelihood function
-        likelihood = pm.DensityDist('likelihood', loglike_op, observed=params)
+        # Note: This includes likelihood only, as priors are already defined above
+        @pm.as_op(itypes=[tt.dvector], otypes=[tt.dscalar])
+        def loglike_only(params_tt):
+            """Calculate likelihood only (without prior)"""
+            try:
+                params_np = np.array(params_tt)
+                # Get full posterior (includes prior)
+                post, output = calc_posterior(self, params_np, myvars)
+
+                # If using informative priors in PyMC3, subtract prior to get likelihood only
+                if use_informative:
+                    log_prior = calc_log_prior_all(
+                        params_np,
+                        self.ensemble_dist_type,
+                        self.ensemble_dist_params,
+                        self.ensemble_pmin,
+                        self.ensemble_pmax,
+                        use_informative_priors=True
+                    )
+                    likelihood_only = post - log_prior
+                    return likelihood_only if np.isfinite(likelihood_only) else -1e10
+                else:
+                    # For uniform priors, posterior is just likelihood (prior is constant)
+                    return post if np.isfinite(post) else -1e10
+            except:
+                return -1e10
+
+        likelihood = pm.DensityDist('likelihood', loglike_only, observed=params)
         
         # Choose sampler
         if sampler == 'NUTS':
