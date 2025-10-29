@@ -23,10 +23,10 @@ exeroot = ''
 
 runtype = 'site'               #site,latlon_list,latlon_bbox
 mettype = 'gswp3'               #Site or reanalysis product to use (site, gswp3, crujra)
-case_suffix = ''               #Identifier for cases (leave blank if none)
+case_suffix = 'baseline'               #Identifier for cases (leave blank if none)
 
 if (runtype == 'site'):
-    sites = ['US-MOz']               #Site name, list of site names, or 'all' for all sites in site group
+    sites = ['US-Blo']               #Site name, list of site names, or 'all' for all sites in site group
     sitegroup = 'TAM'       #Sites defined in <inputdata>/lnd/clm2/PTCLM/<sitegroup>_sitedata.txt
     numproc = 1
 else:
@@ -61,7 +61,7 @@ run_startyear  = 1850      #Starting year for transient run, SP run or FATES C-o
 #note:  use surffile, domainfile, pftdynfile, metdir instead of the standard namelist variables for those files.
 #case_options['option'] = value or [value1, value2, value3] if applying different options to different compsets
 case_options={}
-case_options['tam'] = True
+#case_options['tam'] = True
 case_options['use_nofire'] = '.true.'
 case_options['paramfile'] = '/ccsopen/home/6lw/models/OLMT/inputdata/tam_params.nc' 
 #case_options['metdir'] = '/gpfs/wolf2/cades/cli185/proj-shared/zdr/elm-olmt/runscripts'
@@ -70,13 +70,13 @@ case_options['paramfile'] = '/ccsopen/home/6lw/models/OLMT/inputdata/tam_params.
 
 #--------------------ensemble options------------------------------------------------
 
-parm_list      = 'inputdata/PTTAM/US-MOz_parm_list_tam'  #Set parameter list (leave blank for no ensemble)
+parm_list      = ''#'inputdata/PTTAM/US-Blo_parm_list_tam'  #Set parameter list (leave blank for no ensemble)
 nsamples       =  1000    #number of samples to run
 np_ensemble    =  384    #number of ensemble numbers to run in parallel (MUST be <= nsamples)
 ensemble_file  = ''     #File containing samples (if blank, OLMT will generate one)
 postproc_vars  = ['GPP','ER','NPP','NEE','BGNPP','NEP','NBP','TLAI','FPSN','SOILC','TOTECOSYSC','QFLX_EVAP_TOT','EFLX_LH_TOT','FSH','FROOTTC','FROOTAC','FROOTMC']  #Variables to automatically post-processpostproc_startyear = 1860
-postproc_startyear = 2007
-postproc_endyear   = 2014
+postproc_startyear = 2000
+postproc_endyear   = 2006
 postproc_freq      = 'annual'   #Can be daily, monthly, annual, hourly(not tested)
 
 #Observations to use in calibration (must match a model output variable in name/units, and the 

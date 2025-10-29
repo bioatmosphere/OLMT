@@ -1136,7 +1136,7 @@ def detect_correlation_issues(chain_samples, param_names=None,
     
     return issues
 
-def enhanced_proposal_step(parm_last, current_cov, method='multivariate_normal'):
+def enhanced_proposal_step(parm_last, current_cov, method='eigendecomp'):
     """
     Generate proposal step with enhanced methods.
     
@@ -1900,7 +1900,7 @@ def delayed_rejection_step(self, parm_current, mycov, myvars, post_current,
         
         # Generate proposal
         parm_proposal, success = enhanced_proposal_step(
-            parm_current, scaled_cov, method='multivariate_normal')
+            parm_current, scaled_cov, method='eigendecomp')
         
         if not success:
             continue
@@ -1963,9 +1963,14 @@ def block_sampling_step(self, parm_current, mycov, myvars, post_current,
         block_cov = mycov[np.ix_(block, block)]
         block_params = parm_new[block]
         
-        # Generate block proposal
+        # Generate block proposal using eigendecomp for robustness
         try:
-            block_proposal = np.random.multivariate_normal(block_params, block_cov)
+            # Use eigendecomposition for numerical stability
+            eigenvals, eigenvecs = np.linalg.eigh(block_cov)
+            eigenvals = np.maximum(eigenvals, 1e-12)
+            sqrt_eigenvals = np.sqrt(eigenvals)
+            z = np.random.standard_normal(len(block))
+            block_proposal = block_params + eigenvecs @ (sqrt_eigenvals * z)
         except:
             # Fallback to diagonal if covariance issues
             block_proposal = block_params + np.sqrt(np.diag(block_cov)) * np.random.randn(len(block))
@@ -2117,7 +2122,7 @@ def parallel_tempering_step(self, parm_current, mycov, myvars, post_current,
         
         # Generate proposal with higher temperature
         parm_proposal, success = enhanced_proposal_step(
-            parm_current, heated_cov, method='multivariate_normal')
+            parm_current, heated_cov, method='eigendecomp')
         
         if success:
             post_proposal, _ = calc_posterior(self, parm_proposal, myvars)
@@ -2130,7 +2135,7 @@ def parallel_tempering_step(self, parm_current, mycov, myvars, post_current,
     
     # Standard temperature step
     parm_proposal, success = enhanced_proposal_step(
-        parm_current, mycov, method='multivariate_normal')
+        parm_current, mycov, method='eigendecomp')
     
     if success:
         post_proposal, _ = calc_posterior(self, parm_proposal, myvars)
@@ -2373,9 +2378,17 @@ def calc_posterior(self,parms,myvars):
           model_output = output[v].flatten()
           observations = np.array(self.obs[v]).flatten()
           uncertainties = np.array(self.obs_err[v]).flatten()
-          
+
+          # Ensure model output matches observation length (handle filtered years)
+          if len(model_output) > len(observations):
+              model_output = model_output[:len(observations)]
+          elif len(model_output) < len(observations):
+              # Pad model output with NaN if shorter
+              model_output = np.pad(model_output, (0, len(observations) - len(model_output)),
+                                  constant_values=np.nan)
+
           # Vectorized likelihood calculation for valid observations
-          valid_mask = (observations > -9000) & (uncertainties > 0)
+          valid_mask = (observations > -9000) & (uncertainties > 0) & (~np.isnan(model_output))
           valid_obs = observations[valid_mask]
           valid_pred = model_output[valid_mask]
           valid_err = uncertainties[valid_mask]
@@ -2906,8 +2919,8 @@ def MCMC(self, parms, myvars, nevals,myobs_05,myobs_95,mcmc_type='uniform', nbur
     precon_cov = mycov * 0.5  # Start with smaller steps
     
     for precon_i in range(precon_samples):
-        # Simple random walk with scaled covariance
-        proposal = np.random.multivariate_normal(current_params, precon_cov)
+        # Simple random walk with scaled covariance using eigendecomp
+        proposal, _ = enhanced_proposal_step(current_params, precon_cov, method='eigendecomp')
         
         # Apply bounds
         proposal = np.clip(proposal, self.ensemble_pmin, self.ensemble_pmax)
@@ -3074,7 +3087,7 @@ def MCMC(self, parms, myvars, nevals,myobs_05,myobs_95,mcmc_type='uniform', nbur
         adaptation_interval = max(15, min(nburn // 30, 50))  # Very frequent in early phases
         warmup_phase = phase2_end  # Warmup extends through adaptation phase
         adaptation_history = []
-        proposal_method = 'multivariate_normal'  # Start with standard method
+        proposal_method = 'eigendecomp'  # Start with robust method
         
         
         # Optimize MCMC configuration using sensitivity analysis
@@ -3132,7 +3145,7 @@ def MCMC(self, parms, myvars, nevals,myobs_05,myobs_95,mcmc_type='uniform', nbur
             }
     else:
         adaptation_history = []
-        proposal_method = 'multivariate_normal'
+        proposal_method = 'eigendecomp'
         sensitivity_info = None
     
     # Initialize advanced sampling tracking
@@ -3260,7 +3273,7 @@ def MCMC(self, parms, myvars, nevals,myobs_05,myobs_95,mcmc_type='uniform', nbur
                         if i <= 2 * nburn:  # Only print during early burn-in
                             print(f"  Iteration {i}: Using Cholesky method for {len(issues['high_correlations'])} correlated pairs")
                     else:
-                        proposal_method = 'multivariate_normal'
+                        proposal_method = 'eigendecomp'  # Default to robust method
                 
                 # Update covariance matrix
                 mycov = new_cov
@@ -3495,15 +3508,15 @@ def MCMC(self, parms, myvars, nevals,myobs_05,myobs_95,mcmc_type='uniform', nbur
                 parms_proposal, proposal_success = enhanced_proposal_step(
                     parm_last, mycov, method=proposal_method)
                 
-                # Fallback to diagonal proposals if enhanced method fails
-                if not proposal_success and proposal_method != 'multivariate_normal':
+                # Fallback to eigendecomp if enhanced method fails
+                if not proposal_success and proposal_method != 'eigendecomp':
                     parms_proposal, _ = enhanced_proposal_step(
-                        parm_last, mycov, method='multivariate_normal')
+                        parm_last, mycov, method='eigendecomp')
                     if i < burnsteps * nburn and i % (nburn * 2) == 0:
-                        print(f"  Iteration {i}: Fallback to standard multivariate normal proposal")
+                        print(f"  Iteration {i}: Fallback to eigendecomp proposal")
             else:
-                # Standard proposal for non-adaptive mode
-                parms_proposal = np.random.multivariate_normal(parm_last, mycov)
+                # Standard proposal for non-adaptive mode using eigendecomp
+                parms_proposal, _ = enhanced_proposal_step(parm_last, mycov, method='eigendecomp')
             
             # Calculate posterior for standard proposal
             post_proposal, thisoutput = calc_posterior(self, parms_proposal, myvars)
@@ -3860,7 +3873,6 @@ def MCMC(self, parms, myvars, nevals,myobs_05,myobs_95,mcmc_type='uniform', nbur
     for v in myvars:
       fig = plt.figure()
       ax=fig.add_subplot(111)
-      x = np.cumsum(np.ones([self.nobs[v]],float))
       # observations with confidence intervals
       #obs_plot = np.array(self.obs[v].copy())
       #obs_plot[obs_plot < -9000] = np.nan
@@ -3874,15 +3886,30 @@ def MCMC(self, parms, myvars, nevals,myobs_05,myobs_95,mcmc_type='uniform', nbur
       myobs_05_plot[myobs_05_plot < -9000] = np.nan
       myobs_95_plot = np.array(myobs_95[v].copy())
       myobs_95_plot[myobs_95_plot < -9000] = np.nan
+
+      # Create x-axis based on actual observation length (handle filtered years)
+      x = np.cumsum(np.ones([len(obs_plot)],float))
+
       ax.plot(x, obs_plot, 'bo', label='Observations')
       ax.plot(x, myobs_05_plot, 'b--', label='Obs 90% CI')
       ax.plot(x, myobs_95_plot, 'b--')
 
-      # model best and 95% CI
-      ax.plot(x,output_best[v].flatten(),'r', label = 'Model best')
-      ax.plot(x,output_sorted[v][:,int(0.05*(nevals-nburn*burnsteps))].flatten(), \
-                 'k--', label='Model 95% CI')
-      ax.plot(x,output_sorted[v][:,int(0.95*(nevals-nburn*burnsteps))].flatten(),'k--')
+      # model best and 95% CI - trim to match observation length
+      output_best_v = output_best[v].flatten()
+      if len(output_best_v) > len(obs_plot):
+          output_best_v = output_best_v[:len(obs_plot)]
+      ax.plot(x,output_best_v,'r', label = 'Model best')
+
+      # Trim sorted outputs to match observation length
+      output_sorted_05 = output_sorted[v][:,int(0.05*(nevals-nburn*burnsteps))].flatten()
+      output_sorted_95 = output_sorted[v][:,int(0.95*(nevals-nburn*burnsteps))].flatten()
+      if len(output_sorted_05) > len(obs_plot):
+          output_sorted_05 = output_sorted_05[:len(obs_plot)]
+      if len(output_sorted_95) > len(obs_plot):
+          output_sorted_95 = output_sorted_95[:len(obs_plot)]
+
+      ax.plot(x, output_sorted_05, 'k--', label='Model 95% CI')
+      ax.plot(x, output_sorted_95, 'k--')
       
       #if (options.parm_default != ''):
       #  ax.plot(x,default_output[thisob], 'g', label='Default')

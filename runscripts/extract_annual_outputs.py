@@ -32,11 +32,33 @@ from netCDF4 import Dataset
 # =============================================================================
 
 # Input directory containing ELM NetCDF output files
-run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251008_FI-Hyy_ICB20TRCNPRDCTCBC/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251008_FI-Hyy_ICB20TRCNPRDCTCBC/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251016_CA-Oas_ICB20TRCNPRDCTCBC/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251016_BR-Sa1_ICB20TRCNPRDCTCBC/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251017_US-Var_ICB20TRCNPRDCTCBC/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251016_US-Ho1_ICB20TRCNPRDCTCBC/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251017_US-MOz_ICB20TRCNPRDCTCBC/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251017_AU-Tum_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251018_PA-SPn_ICB20TRCNPRDCTCBC/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251019_RU-SkP_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251020_US-Atq_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251020_AU-DaP_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251021_RU-Cok_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251021_US-SRC_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251021_ES-LJu_ICB20TRCNPRDCTCBC_baseline/run'
+#NOTE:ES-LJu assigned as PFT 9 
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251023_ES-LJu_ICB20TRCNPRDCTCBC_baseline/run'
+#NOTE: US-SRC assigned as PFT 10
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251023_US-SRC_ICB20TRCNPRDCTCBC_baseline/run'
+#PFT 1
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251028_IT-Ren_ICB20TRCNPRDCTCBC_baseline/run'
+#PFT 1
+run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251029_US-Blo_ICB20TRCNPRDCTCBC_baseline/run'
+
 
 # Year range to extract (inclusive)
-postproc_startyear = 2007
-postproc_endyear = 2014
+postproc_startyear = 2000
+postproc_endyear = 2006
 
 # Output directory for extracted files
 output_directory = './extracted_outputs'

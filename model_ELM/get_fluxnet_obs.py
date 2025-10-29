@@ -109,7 +109,7 @@ def get_fluxnet_obs(self, site='US-UMB', tstep='monthly', ystart=-1, yend=9999, 
                   print('Getting start and end year information from observation file')
                   for j in myobs_input:
                       if thisrow == 1:
-                          ystart = int(j[0:4]) + 1
+                          ystart = int(j[0:4])
                       elif thisrow > 1:
                           yend = int(j[0:4])
                       thisrow = thisrow + 1

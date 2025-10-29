@@ -1,8 +1,8 @@
 #!/bin/bash -e
 
-#SBATCH -t 6:00:00
+#SBATCH -t 1:00:00
 #SBATCH -J mcmc_only
-#SBATCH --nodes=3
+#SBATCH --nodes=1
 #SBATCH -A CLI185
 #SBATCH -p batch
 
@@ -13,5 +13,24 @@
 
 ulimit -n 2024
 cd /autofs/nccsopen-svm1_home/6lw/models/OLMT/runscripts/..
-#./manage_ensemble.py --case 20250708_US-Ho1_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
-./manage_ensemble.py --case 20250910_US-MOz_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+
+#./manage_ensemble.py --case 20251014_US-Ho1_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+#./manage_ensemble.py --case 20250910_US-MOz_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+#./manage_ensemble.py --case 20250929_US-Var_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+#./manage_ensemble.py --case 20251007_FI-Hyy_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+#./manage_ensemble.py --case 20251014_BR-Sa1_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+#./manage_ensemble.py --case 20251015_CA-Oas_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+#./manage_ensemble.py --case 20251017_PA-SPn_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+#./manage_ensemble.py --case 20251017_AU-Tum_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+#./manage_ensemble.py --case 20251019_RU-SkP_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+#./manage_ensemble.py --case 20251020_US-Atq_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+#./manage_ensemble.py --case 20251020_AU-DaP_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+#./manage_ensemble.py --case 20251021_RU-Cok_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+#./manage_ensemble.py --case 20251021_US-SRC_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+#./manage_ensemble.py --case 20251021_ES-LJu_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+# NOTE: ES-LJu re-assigned as PFT 9
+#./manage_ensemble.py --case 20251022_ES-LJu_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+#NOTE: US-SRC re-assigned as PFT 10
+#./manage_ensemble.py --case 20251022_US-SRC_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+# PFT 1: IT-Ren
+./manage_ensemble.py --case 20251028_IT-Ren_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
