@@ -8,6 +8,8 @@ run_logs_archive/
 pklfiles/
 runscripts/archive
 runscripts/multisite
+runscripts/MCMC_only.sh
+runscripts/run_TAM1.py
 
 # files created by OLMT executions
 run.*
@@ -15,6 +17,7 @@ run.*
 *.run.o*
 slurm-*.out
 mcsamples*.txt
+create_newcase.log
 
 # user defined files
 
