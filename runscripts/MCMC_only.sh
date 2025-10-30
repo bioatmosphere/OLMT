@@ -14,7 +14,9 @@
 ulimit -n 2024
 cd /autofs/nccsopen-svm1_home/6lw/models/OLMT/runscripts/..
 
+### PFT 1: US-Ho1
 #./manage_ensemble.py --case 20251014_US-Ho1_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+### PFT 7: US-MOz
 #./manage_ensemble.py --case 20250910_US-MOz_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
 #./manage_ensemble.py --case 20250929_US-Var_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
 #./manage_ensemble.py --case 20251007_FI-Hyy_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
@@ -28,9 +30,11 @@ cd /autofs/nccsopen-svm1_home/6lw/models/OLMT/runscripts/..
 #./manage_ensemble.py --case 20251021_RU-Cok_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
 #./manage_ensemble.py --case 20251021_US-SRC_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
 #./manage_ensemble.py --case 20251021_ES-LJu_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
-# NOTE: ES-LJu re-assigned as PFT 9
+### NOTE: ES-LJu re-assigned as PFT 9
 #./manage_ensemble.py --case 20251022_ES-LJu_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
-#NOTE: US-SRC re-assigned as PFT 10
+### NOTE: US-SRC re-assigned as PFT 10
 #./manage_ensemble.py --case 20251022_US-SRC_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
-# PFT 1: IT-Ren
-./manage_ensemble.py --case 20251028_IT-Ren_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+### PFT 1: IT-Ren
+#./manage_ensemble.py --case 20251028_IT-Ren_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+### PFT 1: US-Blo
+./manage_ensemble.py --case 20251029_US-Blo_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
