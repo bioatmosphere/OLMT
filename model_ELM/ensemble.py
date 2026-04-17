@@ -81,7 +81,7 @@ def create_ensemble_script(self, walltime=6):
     myfile.write('./preview_namelists\n\n')
     myfile.write('ulimit -n '+str(self.nsamples+1024)+'\n')
     myfile.write('cd '+self.OLMTdir+'\n')
-    myfile.write('./manage_ensemble.py --case '+self.casename+'\n')
+    myfile.write(sys.executable+' manage_ensemble.py --case '+self.casename+'\n')
     myfile.close()  
     os.system('chmod u+x case.submit_ensemble')
     self.rundir_UQ = self.runroot+'/UQ/'+self.casename
@@ -130,7 +130,10 @@ def create_multisite_script(self,sites,scriptdir, walltime=6):
     myfile.write('#SBATCH --nodes='+str(nnodes)+'\n')
     if (self.project != ''):
         myfile.write('#SBATCH -A '+self.project+'\n')
-    myfile.write('#SBATCH -p '+self.queue+'\n')
+    if ('pm-cpu' in self.machine):
+        myfile.write('#SBATCH -q '+self.queue+'\n')
+    else:
+        myfile.write('#SBATCH -p '+self.queue+'\n')
     myfile.write('cd '+self.caseroot+'/'+self.casename+'\n')
     myfile.write('export LD_LIBRARY_PATH='+ldpath+'\n\n')
     for s in sites:
