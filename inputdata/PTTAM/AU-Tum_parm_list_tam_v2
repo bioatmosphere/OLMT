@@ -1,0 +1,43 @@
+# AU-Tum TAM Parameter List - Version 2 (TAM framework only, zero-GPP prevention)
+# Based on analysis of 1000-member ensemble (analyze_zero_gpp.py)
+#
+# Format: parameter_name distribution_type min max
+# ==================================================================================
+
+# ROOT C:N RATIOS - CRITICAL for avoiding zero GPP
+# Low C:N (high N) + long roots = N sequestration in roots → zero leaf photosynthesis
+froottcn 5 100 160   # Transport root C:N (min raised: 20→100 to avoid zero GPP)
+frootacn 5 70 110    # Absorptive root C:N (min raised: 11→70 to avoid zero GPP)
+frootmcn 5 13 22     # Mycorrhizal root C:N (narrowed to safe range)
+
+# ROOT C:P RATIOS - Representative only
+froottcp 5 450 900   # Transport root C:P only (removed absorptive/mycorrhizal - correlated)
+
+# ROOT LONGEVITY - CRITICAL for avoiding zero GPP
+# Long absorptive roots with high N = disaster
+froott_long 5 4 8    # Transport root longevity (years)
+froota_long 5 0.6 1.2 # Absorptive root longevity (years) (max reduced: 4→1.2)
+frootm_long 5 0.3 0.7 # Mycorrhizal root longevity (years)
+
+# ROOT CHEMISTRY - Most influential
+frt_flab 5 0.15 0.30  # Transport root labile fraction
+fra_flab 5 0.15 0.30  # Absorptive root labile fraction
+
+# ROOT-LEAF ALLOCATION - Controls leaf carbon
+froott_leaf 5 0.10 0.30  # Transport root to leaf allocation
+froota_leaf 5 0.25 0.50  # Absorptive root to leaf allocation
+
+# ==================================================================================
+# PARAMETER COUNT: 11 (pure TAM framework)
+#
+# WARNING: This TAM-only version may produce GPP below observed range
+# For robust calibration reaching observed GPP (2500-4500 gC/m²/year), use:
+#   AU-Tum_parm_list_tam_v2_robust (adds leafcn, slatop)
+#
+# ZERO GPP PREVENTION:
+#   - Original: 342/1000 (34.2%) zero GPP
+#   - With these ranges: Expected <5% zero GPP
+#   - Key fixes: Higher C:N minimums, lower absorptive longevity maximum
+#
+# ENSEMBLE SIZE: 1000 samples minimum for robust surrogates
+# ==================================================================================

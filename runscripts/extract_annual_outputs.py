@@ -32,12 +32,67 @@ from netCDF4 import Dataset
 # =============================================================================
 
 # Input directory containing ELM NetCDF output files
-#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251008_FI-Hyy_ICB20TRCNPRDCTCBC/run'
 #run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251016_CA-Oas_ICB20TRCNPRDCTCBC/run'
 #run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251016_BR-Sa1_ICB20TRCNPRDCTCBC/run'
 #run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251017_US-Var_ICB20TRCNPRDCTCBC/run'
+
+### PFT 1
 #run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251016_US-Ho1_ICB20TRCNPRDCTCBC/run'
+#postproc_startyear = 2008
+#postproc_endyear = 2014
+### PFT 2
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251008_FI-Hyy_ICB20TRCNPRDCTCBC/run'
+#postproc_startyear = 2007
+#postproc_endyear = 2014
+### PFT 3
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251019_RU-SkP_ICB20TRCNPRDCTCBC_baseline/run'
+#postproc_startyear = 2012
+#postproc_endyear = 2014
+### PFT 4
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251016_BR-Sa1_ICB20TRCNPRDCTCBC/run'
+#postproc_startyear = 2002
+#postproc_endyear = 2011
+### PFT 5
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251017_AU-Tum_ICB20TRCNPRDCTCBC_baseline/run'
+#postproc_startyear = 2001
+#postproc_endyear = 2014
+### PFT 6
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251018_PA-SPn_ICB20TRCNPRDCTCBC/run'
+#postproc_startyear = 2007
+#postproc_endyear = 2009
+### PFT 7
 #run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251017_US-MOz_ICB20TRCNPRDCTCBC/run'
+#postproc_startyear = 2007
+#postproc_endyear = 2014
+### PFT 8
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251016_CA-Oas_ICB20TRCNPRDCTCBC/run'
+#postproc_startyear = 2001
+#postproc_endyear = 2010
+### PFT 9
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251023_ES-LJu_ICB20TRCNPRDCTCBC_baseline/run'
+#postproc_startyear = 2006
+#postproc_endyear = 2013
+### PFT 10
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251023_US-SRC_ICB20TRCNPRDCTCBC_baseline/run'
+#postproc_startyear = 2008
+#postproc_endyear = 2014
+### PFT 11
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251021_RU-Cok_ICB20TRCNPRDCTCBC_baseline/run'
+#postproc_startyear = 2003
+#postproc_endyear = 2013
+### PFT 12
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251020_US-Atq_ICB20TRCNPRDCTCBC_baseline/run'
+#postproc_startyear = 2003
+#postproc_endyear = 2008
+### PFT 13
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251017_US-Var_ICB20TRCNPRDCTCBC/run'
+#postproc_startyear = 2007
+#postproc_endyear = 2014
+### PFT 14
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251020_AU-DaP_ICB20TRCNPRDCTCBC_baseline/run'
+#postproc_startyear = 2008
+#postproc_endyear = 2013
+
 #run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251017_AU-Tum_ICB20TRCNPRDCTCBC_baseline/run'
 #run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251018_PA-SPn_ICB20TRCNPRDCTCBC/run'
 #run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251019_RU-SkP_ICB20TRCNPRDCTCBC_baseline/run'
@@ -53,12 +108,97 @@ from netCDF4 import Dataset
 #PFT 1
 #run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251028_IT-Ren_ICB20TRCNPRDCTCBC_baseline/run'
 #PFT 1
-run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251029_US-Blo_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20251029_US-Blo_ICB20TRCNPRDCTCBC_baseline/run'
 
+##########################################
+### Validation with optimized parameters
+##########################################
+#PFT 9+7: IT-Cpz(independent site; GSWP3)
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260321_IT-Cpz_ICB20TRCNPRDCTCBC_baseline/run'
+run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260321_IT-Cpz_ICB20TRCNPRDCTCBC_optimized/run'
+postproc_startyear = 1997
+postproc_endyear = 2009
+
+
+#PFT 14: US-RO4(independent site; CRUJRA)
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260319_US-RO4_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260319_US-RO4_ICB20TRCNPRDCTCBC_optimized/run'
+#postproc_startyear = 2014
+#postproc_endyear = 2023
+
+
+#PFT 13: US-Var(same site but with CRUJRA)
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260312_US-Var_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260312_US-Var_ICB20TRCNPRDCTCBC_optimized/run'
+#postproc_startyear = 2015
+#postproc_endyear = 2021
+
+
+#PFT 13: CN-Du2(independent site; GSWP3)
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260319_CN-Du2_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260319_CN-Du2_ICB20TRCNPRDCTCBC_optimized/run'
+#postproc_startyear = 2006
+#postproc_endyear = 2008
+
+
+# PFT 12: CN-Dan(independent site; GSWP3)
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260319_CN-Dan_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260319_CN-Dan_ICB20TRCNPRDCTCBC_optimized/run'
+#postproc_startyear = 2004
+#postproc_endyear = 2005
+
+# PFT 11: GL-ZaH (independent site; GSWP3)
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260319_GL-ZaH_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260319_GL-ZaH_ICB20TRCNPRDCTCBC_optimized/run'
+#postproc_startyear = 2000
+#postproc_endyear = 2014
+
+#PFT 7: US-MOz(calibration with GSWP3, validation withCRUJRA)
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260312_US-MOz_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260311_US-MOz_ICB20TRCNPRDCTCBC_optimized/run'
+#postproc_startyear = 2015
+#postproc_endyear = 2021
+
+#PFT 7: US-Ha1 (independent site; GSWP3)
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260309_US-Ha1_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260309_US-Ha1_ICB20TRCNPRDCTCBC_optimized/run'
+#postproc_startyear = 1992
+#postproc_endyear = 2014
+
+# PFT 6: ZM-Mon(independent site; GSWP3)
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260319_ZM-Mon_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260319_ZM-Mon_ICB20TRCNPRDCTCBC_optimized/run'
+#postproc_startyear = 2000
+#postproc_endyear = 2009
+
+#PFT 4: GH-Ank(independent site; GSWP3)
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260319_GH-Ank_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260319_GH-Ank_ICB20TRCNPRDCTCBC_optimized/run'
+#postproc_startyear = 2011
+#postproc_endyear = 2014
+
+#PFT 2: RU-Fyo (independent site; GSWP3)
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260319_RU-Fyo_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260319_RU-Fyo_ICB20TRCNPRDCTCBC_optimized/run'
+#postproc_startyear = 1998
+#postproc_endyear = 2014
+
+
+#PFT 1: US-Ho1(same site; but CRUJRA)
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260315_US-Ho1_ICB20TRCNPRDCTCBC_baseline/run'
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260315_US-Ho1_ICB20TRCNPRDCTCBC_optimized/run'
+#postproc_startyear = 2015
+#postproc_endyear = 2021
+
+
+#PFT 1: US-Blo(independent site; GSWP3)
+#run_directory = '/gpfs/wolf2/cades/cli185/scratch/6lw/e3sm_run/20260306_US-Blo_ICB20TRCNPRDCTCBC/run'
+#postproc_startyear = 2000
+#postproc_endyear = 2006
 
 # Year range to extract (inclusive)
-postproc_startyear = 2000
-postproc_endyear = 2006
+#postproc_startyear = 2000
+#postproc_endyear = 2006
 
 # Output directory for extracted files
 output_directory = './extracted_outputs'
@@ -72,8 +212,8 @@ write_annual_txt = True
 # Variables to extract for annual output (leave empty to extract all common variables)
 # Flux variables (gC/m2/s) will be converted to annual sums (gC/m2/yr)
 # State variables will be annual means
-variables_to_extract = ['GPP', 'NPP', 'ER', 'NEE', 'HR', 'FSH', 'EFLX_LH_TOT',
-                        'FPSN', 'TOTSOMC', 'TOTVEGC']
+variables_to_extract = ['GPP', 'NPP', 'ER', 'NEE','NBP','NEP', 'HR', 'FSH', 'EFLX_LH_TOT',
+                        'FPSN', 'TOTSOMC', 'TOTVEGC','TOTECOSYSC']
 
 # =============================================================================
 # EXTRACTION FUNCTIONS

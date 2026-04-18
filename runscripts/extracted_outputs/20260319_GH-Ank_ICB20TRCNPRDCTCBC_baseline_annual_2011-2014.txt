@@ -1,0 +1,24 @@
+# Annual output values extracted from ELM simulation
+# Source file: tmpc4itzszp.nc
+# Years: 2011 - 2014
+#
+# Variables:
+#   GPP: gross primary production (annual sum, gC/m2/yr)
+#   NPP: net primary production (annual sum, gC/m2/yr)
+#   ER: total ecosystem respiration, autotrophic + heterotrophic (annual sum, gC/m2/yr)
+#   NEE: net ecosystem exchange of carbon, includes fire, landuse, harvest, and hrv_xsmrpool flux, positive for source (annual sum, gC/m2/yr)
+#   NBP: net biome production, includes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   NEP: net ecosystem production, excludes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   HR: total heterotrophic respiration (annual sum, gC/m2/yr)
+#   FSH: sensible heat (annual mean, W/m^2)
+#   EFLX_LH_TOT: total latent heat flux [+ to atm] (annual mean, W/m^2)
+#   FPSN: photosynthesis (annual mean daily flux, umol/m2/day)
+#   TOTSOMC: total soil organic matter carbon (annual mean, gC/m^2)
+#   TOTVEGC: total vegetation carbon, excluding cpool (annual mean, gC/m^2)
+#   TOTECOSYSC: total ecosystem carbon, incl veg but excl cpool but excl product pools (annual mean, gC/m^2)
+#
+Year	GPP	NPP	ER	NEE	NBP	NEP	HR	FSH	EFLX_LH_TOT	FPSN	TOTSOMC	TOTVEGC	TOTECOSYSC
+2011	2048.990234	545.864136	1996.928223	58.897781	-0.000002	0.000002	493.802124	41.027199	78.380333	467377.562500	12629.183594	556.845703	14810.992188
+2012	2056.671875	620.460571	1911.769531	-34.684242	0.000001	0.000005	475.558167	42.712795	76.415337	469129.750000	12624.147461	556.485046	14806.853516
+2013	2006.493286	552.124329	1971.148315	74.361893	-0.000003	0.000001	516.779236	41.262260	77.116173	457684.000000	12609.526367	543.802246	14768.619141
+2014	1756.586914	528.889587	1710.255005	63.211178	-0.000003	0.000001	482.557739	41.366295	77.351013	400679.906250	12577.824219	500.633636	14674.075195

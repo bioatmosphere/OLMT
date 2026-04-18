@@ -1,0 +1,27 @@
+# Annual output values extracted from ELM simulation
+# Source file: tmpe7lz_yli.nc
+# Years: 2015 - 2021
+#
+# Variables:
+#   GPP: gross primary production (annual sum, gC/m2/yr)
+#   NPP: net primary production (annual sum, gC/m2/yr)
+#   ER: total ecosystem respiration, autotrophic + heterotrophic (annual sum, gC/m2/yr)
+#   NEE: net ecosystem exchange of carbon, includes fire, landuse, harvest, and hrv_xsmrpool flux, positive for source (annual sum, gC/m2/yr)
+#   NBP: net biome production, includes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   NEP: net ecosystem production, excludes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   HR: total heterotrophic respiration (annual sum, gC/m2/yr)
+#   FSH: sensible heat (annual mean, W/m^2)
+#   EFLX_LH_TOT: total latent heat flux [+ to atm] (annual mean, W/m^2)
+#   FPSN: photosynthesis (annual mean daily flux, umol/m2/day)
+#   TOTSOMC: total soil organic matter carbon (annual mean, gC/m^2)
+#   TOTVEGC: total vegetation carbon, excluding cpool (annual mean, gC/m^2)
+#   TOTECOSYSC: total ecosystem carbon, incl veg but excl cpool but excl product pools (annual mean, gC/m^2)
+#
+Year	GPP	NPP	ER	NEE	NBP	NEP	HR	FSH	EFLX_LH_TOT	FPSN	TOTSOMC	TOTVEGC	TOTECOSYSC
+2015	707.835144	420.056305	729.785522	21.950394	-0.000001	-0.000001	442.006683	62.315598	27.939547	161458.203125	9364.817383	547.130493	10064.459961
+2016	668.823730	327.199036	733.709717	64.885918	-0.000002	-0.000002	392.084930	59.253876	29.342085	152559.625000	9382.837891	495.261658	10001.995117
+2017	542.764832	303.807526	542.738647	-0.026162	0.000000	0.000000	303.781372	60.338165	28.887056	123805.421875	9368.835938	473.057892	9937.308594
+2018	730.144348	418.225586	595.895386	-134.249023	0.000004	0.000004	283.976562	62.021347	27.640465	166546.968750	9307.221680	672.345947	10065.255859
+2019	886.514526	531.572693	673.938110	-212.576416	0.000007	0.000007	318.996246	61.636997	29.786373	202215.234375	9285.176758	859.857117	10262.289062
+2020	649.700012	249.664795	745.543945	95.843941	-0.000003	-0.000003	345.508759	66.040131	23.747364	148197.484375	9303.934570	838.095032	10279.788086
+2021	666.810059	353.083649	741.273010	74.462860	-0.000002	-0.000002	427.546509	69.383736	22.116795	152100.312500	9328.173828	748.176697	10221.858398

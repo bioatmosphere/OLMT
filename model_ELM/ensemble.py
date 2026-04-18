@@ -246,6 +246,11 @@ def create_multisite_script(self,sites,scriptdir, walltime=6):
     if (self.project != ''):
         myfile.write('#SBATCH -A '+self.project+'\n')
     myfile.write('#SBATCH -p '+self.queue+'\n')
+    if ('pflogin' in self.machine):
+        myfile.write('#SBATCH --qos=normal\n')
+        myfile.write('#SBATCH --ntasks='+str(self.np)+'\n')
+        myfile.write('#SBATCH --cpus-per-task=1\n')
+        myfile.write('#SBATCH --mem=0G\n')
     myfile.write('cd '+self.caseroot+'/'+self.casename+'\n')
     myfile.write('export LD_LIBRARY_PATH='+ldpath+'\n\n')
     for s in sites:

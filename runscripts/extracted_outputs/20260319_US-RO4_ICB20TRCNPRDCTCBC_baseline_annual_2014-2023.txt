@@ -1,0 +1,30 @@
+# Annual output values extracted from ELM simulation
+# Source file: tmpy9_i_6n2.nc
+# Years: 2014 - 2023
+#
+# Variables:
+#   GPP: gross primary production (annual sum, gC/m2/yr)
+#   NPP: net primary production (annual sum, gC/m2/yr)
+#   ER: total ecosystem respiration, autotrophic + heterotrophic (annual sum, gC/m2/yr)
+#   NEE: net ecosystem exchange of carbon, includes fire, landuse, harvest, and hrv_xsmrpool flux, positive for source (annual sum, gC/m2/yr)
+#   NBP: net biome production, includes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   NEP: net ecosystem production, excludes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   HR: total heterotrophic respiration (annual sum, gC/m2/yr)
+#   FSH: sensible heat (annual mean, W/m^2)
+#   EFLX_LH_TOT: total latent heat flux [+ to atm] (annual mean, W/m^2)
+#   FPSN: photosynthesis (annual mean daily flux, umol/m2/day)
+#   TOTSOMC: total soil organic matter carbon (annual mean, gC/m^2)
+#   TOTVEGC: total vegetation carbon, excluding cpool (annual mean, gC/m^2)
+#   TOTECOSYSC: total ecosystem carbon, incl veg but excl cpool but excl product pools (annual mean, gC/m^2)
+#
+Year	GPP	NPP	ER	NEE	NBP	NEP	HR	FSH	EFLX_LH_TOT	FPSN	TOTSOMC	TOTVEGC	TOTECOSYSC
+2014	1893.162231	1148.795898	1521.615601	-371.546692	0.000012	0.000012	777.249268	17.809639	45.598587	431832.968750	33883.941406	1768.476685	36252.488281
+2015	2091.283691	300.753815	2503.592285	412.308655	-0.000013	-0.000013	713.062500	19.169199	52.905769	477024.781250	33871.085938	2077.871826	36403.281250
+2016	2124.975342	1278.848999	1684.425537	-440.550049	0.000014	0.000014	838.298950	22.082546	50.053509	484709.906250	33862.375000	1919.217773	36259.921875
+2017	2008.168701	216.757202	2403.882080	395.713715	-0.000013	-0.000013	612.470886	19.597940	51.057133	458066.093750	33819.179688	2183.894287	36409.968750
+2018	1702.031738	950.955200	1511.665161	-190.366592	0.000006	0.000006	760.588562	16.145575	41.453148	388235.812500	33813.601562	1804.593506	36168.152344
+2019	1897.012939	585.684448	1983.313354	86.300461	-0.000003	-0.000003	671.984863	13.552071	47.037624	432711.343750	33811.785156	2093.594971	36369.851562
+2020	1910.127686	812.102539	1882.572266	-27.555262	0.000001	0.000001	784.547241	16.534042	47.112095	435702.812500	33832.191406	1868.017090	36231.886719
+2021	1810.226807	499.528503	1934.843872	124.616913	-0.000004	-0.000004	624.145386	21.995724	49.738472	412915.312500	33846.675781	1915.557251	36199.101562
+2022	1955.599731	942.752991	1623.470703	-332.129150	0.000011	0.000011	610.623840	15.769261	49.886974	446075.093750	33854.132812	1925.343140	36269.386719
+2023	1860.032104	316.798645	2143.708984	283.677063	-0.000009	-0.000009	600.475708	18.457029	46.657635	424275.937500	33872.992188	1976.335327	36385.125000

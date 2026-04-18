@@ -35,4 +35,7 @@ cd /autofs/nccsopen-svm1_home/6lw/models/OLMT/runscripts/..
 # PFT 1: IT-Ren
 #./manage_ensemble.py --case 20251028_IT-Ren_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
 ### PFT 5: AU-Tum; constrained new parameters
-./manage_ensemble.py --case 20251029_AU-Tum_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+./manage_ensemble.py --case 20251031_AU-Tum_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+### PFT 1: US-Blo; constrained new parameters
+#./manage_ensemble.py --case 20251030_US-Blo_ICB20TRCNPRDCTCBC --MCMC_only --tstep yearly --use_available_obs
+#./manage_ensemble.py --case 20251030_US-Blo_ICB20TRCNPRDCTCBC --postproc_only --UQ_only

@@ -1,0 +1,30 @@
+# Annual output values extracted from ELM simulation
+# Source file: tmpjyr347ct.nc
+# Years: 2000 - 2009
+#
+# Variables:
+#   GPP: gross primary production (annual sum, gC/m2/yr)
+#   NPP: net primary production (annual sum, gC/m2/yr)
+#   ER: total ecosystem respiration, autotrophic + heterotrophic (annual sum, gC/m2/yr)
+#   NEE: net ecosystem exchange of carbon, includes fire, landuse, harvest, and hrv_xsmrpool flux, positive for source (annual sum, gC/m2/yr)
+#   NBP: net biome production, includes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   NEP: net ecosystem production, excludes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   HR: total heterotrophic respiration (annual sum, gC/m2/yr)
+#   FSH: sensible heat (annual mean, W/m^2)
+#   EFLX_LH_TOT: total latent heat flux [+ to atm] (annual mean, W/m^2)
+#   FPSN: photosynthesis (annual mean daily flux, umol/m2/day)
+#   TOTSOMC: total soil organic matter carbon (annual mean, gC/m^2)
+#   TOTVEGC: total vegetation carbon, excluding cpool (annual mean, gC/m^2)
+#   TOTECOSYSC: total ecosystem carbon, incl veg but excl cpool but excl product pools (annual mean, gC/m^2)
+#
+Year	GPP	NPP	ER	NEE	NBP	NEP	HR	FSH	EFLX_LH_TOT	FPSN	TOTSOMC	TOTVEGC	TOTECOSYSC
+2000	1333.156616	750.186157	1214.438110	-118.718445	0.000004	0.000004	631.467773	70.335030	56.576374	304094.937500	15053.373047	13180.657227	31744.076172
+2001	1239.673584	685.951843	1176.743408	-62.930023	0.000002	0.000002	623.021851	73.645363	51.558727	282771.281250	15066.473633	13258.523438	31840.414062
+2002	1407.396240	779.217346	1245.514893	-161.881317	0.000005	0.000005	617.336121	67.724632	61.244305	321029.062500	15079.391602	13377.509766	31946.503906
+2003	1383.156616	759.499878	1260.894287	-122.262321	0.000004	0.000004	637.237610	66.817200	59.139313	315499.968750	15096.424805	13489.570312	32081.007812
+2004	1052.671875	567.352234	1113.401855	60.730106	-0.000002	-0.000002	628.082397	78.479958	48.860371	240115.921875	15124.519531	13531.768555	32174.447266
+2005	1039.866577	549.751526	1037.568604	-2.297936	0.000000	0.000000	547.453613	74.307175	46.079296	237195.015625	15159.386719	13418.815430	32123.687500
+2006	1136.861694	639.658630	1094.056885	-42.804695	0.000001	0.000001	596.854004	79.520760	48.042599	259319.750000	15177.876953	13431.920898	32146.923828
+2007	1228.520874	690.611572	1142.596558	-85.924355	0.000003	0.000003	604.687195	76.302887	53.860306	280227.343750	15192.485352	13421.992188	32176.345703
+2008	1311.552612	745.349426	1179.298218	-132.254364	0.000004	0.000004	613.095032	76.417007	56.409584	299167.000000	15198.567383	13533.931641	32288.250000
+2009	1312.810547	733.656799	1239.392090	-73.418533	0.000002	0.000002	660.238220	70.205360	55.398678	299453.968750	15205.140625	13632.416016	32392.708984

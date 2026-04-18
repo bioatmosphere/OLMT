@@ -1,0 +1,84 @@
+# Improved TAM Parameter List for AU-Tum Site
+# Version 2 - Robust configuration
+#
+# Key improvements:
+# 1. Reduced parameter count to address identifiability (removed perfectly correlated parameters)
+# 2. Tightened ranges to avoid zero GPP combinations
+# 3. Focused on most influential parameters from sensitivity analysis
+# 4. Added leaf parameters to help reach observed GPP range (2500-4500 gC/m²/year)
+#
+# Format: parameter_name distribution_type min max
+# distribution_type: 5 = uniform
+#
+# TAM Framework: Transport (T), Absorptive (A), Mycorrhizal (M) root traits
+# ==================================================================================
+
+# ROOT C:N RATIOS (Most influential parameters: 4-6% impact on GPP)
+# Keep all three root types to preserve TAM framework
+# CRITICAL: Low C:N causes zero GPP by sequestering N in roots
+# Analysis shows: Need C:N > 95-160 to avoid zero GPP
+froottcn 5 100 160   # Transport root C:N (was 20-184, min raised from 20→100)
+frootacn 5 70 110    # Absorptive root C:N (was 11-119, min raised from 11→70)
+frootmcn 5 13 22     # Mycorrhizal root C:N (was 7-25, narrowed safe range)
+
+# ROOT C:P RATIOS
+# REMOVED frootacp and frootmcp (perfectly correlated with froottcp, <1% GPP impact)
+# Keep only transport CP as representative
+froottcp 5 450 900   # Transport root C:P (was 375-1125, tightened to mid-range)
+
+# ROOT LONGEVITY (Moderate influence: 2-3% impact on GPP)
+# CRITICAL: Long absorptive roots + high N = zero GPP (N sequestration)
+# Analysis shows: froota_long > 1.23 causes zero GPP
+froott_long 5 4 8    # Transport root longevity (years) (was 3-10, avoid very short)
+froota_long 5 0.6 1.2 # Absorptive root longevity (years) (was 0.5-4, max reduced 4→1.2)
+frootm_long 5 0.3 0.7 # Mycorrhizal root longevity (years) (was 0.13-1, narrowed)
+
+# ROOT CHEMISTRY FRACTIONS
+# Consolidated to most influential only
+frt_flab 5 0.15 0.30  # Transport root labile fraction (was 0.1-0.35, tightened)
+fra_flab 5 0.15 0.30  # Absorptive root labile fraction (was 0.1-0.35, tightened)
+# REMOVED all fcel parameters (minimal impact <1%)
+
+# ROOT-LEAF ALLOCATION (Critical for GPP!)
+# These control carbon allocation between roots and leaves
+# Tightened to ensure sufficient leaf allocation for photosynthesis
+froott_leaf 5 0.10 0.30  # Transport root to leaf allocation (was 0.05-0.4, avoid too low)
+froota_leaf 5 0.25 0.50  # Absorptive root to leaf allocation (was 0.2-0.6, mid-range)
+
+# ADDED: LEAF PARAMETERS to help reach observed GPP range
+# These couple with TAM root nutrient uptake to determine photosynthetic capacity
+leafcn 5 25 35       # Leaf C:N ratio (lower = more N per leaf = higher vcmax)
+slatop 5 0.008 0.015 # Specific leaf area (m²/gC) (higher = more leaf area per C)
+
+# ==================================================================================
+# PARAMETER COUNT: 13 (down from 17)
+#
+# Removed (5 parameters):
+#   - frootacp, frootmcp (correlated with froottcp)
+#   - frt_fcel, fra_fcel, frm_fcel (minimal impact)
+#   - frm_flab (consolidated)
+#
+# Added (1 parameter):
+#   - leafcn, slatop (needed to reach realistic GPP)
+#
+# ZERO GPP PREVENTION (Based on analysis of 1000-member ensemble):
+#   Original ensemble: 342/1000 (34.2%) produced zero GPP
+#   Root cause: Low root C:N + Long absorptive roots = N sequestration in roots
+#
+#   Key fixes:
+#   1. froottcn min: 20 → 100 (avoid N-luxury roots)
+#   2. frootacn min: 11 → 70 (avoid N-luxury roots)
+#   3. froota_long max: 4 → 1.2 (avoid long-lived N-rich roots)
+#
+#   Expected result: <5% zero GPP cases (down from 34%)
+#
+# ENSEMBLE SIZE RECOMMENDATION: 1000 samples minimum
+#   - With 13 parameters, need ~75-100 samples per parameter for robust surrogates
+#   - Target R² > 0.90 for all variables
+#
+# NOTES:
+# - CN ratios kept separate for T/A/M roots despite correlation (preserves TAM structure)
+# - Use informative priors in MCMC if correlation persists
+# - leafcn and slatop couple root nutrient supply to leaf photosynthesis
+# - These ranges based on empirical analysis: analyze_zero_gpp.py
+# ==================================================================================

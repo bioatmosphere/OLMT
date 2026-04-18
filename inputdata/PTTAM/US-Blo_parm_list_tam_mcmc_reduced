@@ -1,0 +1,147 @@
+# Parameter file for US-Blo MCMC calibration with reduced parameter space
+# Only photosynthesis parameters (slatop, leafcn, flnr) vary during MCMC
+# Root parameters are effectively fixed at their best values from previous MCMC
+#
+# This approach allows reusing the existing 20-parameter surrogate model
+# without retraining, while only calibrating the 3 most sensitive parameters
+#
+# Format: parameter_name  pft  min  max
+#
+# Based on:
+# - Wang, B., McCormack, M.L., Ricciuto, D.M., Yang, X., and Iversen, C.M. (2023)
+#   "Embracing fine-root system complexity in terrestrial ecosystem modelling"
+#   Global Change Biology. https://doi.org/10.1111/gcb.16659
+
+# ============================================================================
+# PHOTOSYNTHESIS PARAMETERS (CALIBRATED - FULL RANGES)
+# ============================================================================
+
+# Specific Leaf Area at top of canopy (m²/gC)
+# High sensitivity (21.1% of total variance)
+slatop 1 0.018 0.028
+
+# Leaf C:N ratio (gC/gN)
+# High sensitivity (31.0% of total variance)
+leafcn 1 25 40
+
+# Fraction of leaf N in Rubisco (unitless)
+# Highest sensitivity (47.6% of total variance)
+flnr 1 0.10 0.18
+
+# ============================================================================
+# TRANSPORT ROOT PARAMETERS (FIXED AT BEST VALUES)
+# ============================================================================
+# These parameters have very low sensitivity (<0.1%) on annual fluxes
+# Fixed at best estimates from initial MCMC run with wide ranges
+
+# Transport root C:N ratio (gC/gN)
+# Fixed at 96.69 ± 0.01
+froottcn 1 96.68 96.70
+
+# Transport root C:P ratio (gC/gP)
+# Fixed at 726.5 ± 0.1
+froottcp 1 726.4 726.6
+
+# Transport root longevity (years)
+# Fixed at 4.40 ± 0.01
+froott_long 1 4.39 4.41
+
+# Transport root labile fraction (unitless)
+# Fixed at 0.1459 ± 0.0001
+frt_flab 1 0.1458 0.1460
+
+# Transport root cellulose fraction (unitless)
+# Fixed at 0.4592 ± 0.0001
+frt_fcel 1 0.4591 0.4593
+
+# Transport root leaf-to-fineroot ratio (unitless)
+# Fixed at 0.2904 ± 0.0001
+froott_leaf 1 0.2903 0.2905
+
+# ============================================================================
+# ABSORPTIVE ROOT PARAMETERS (FIXED AT BEST VALUES)
+# ============================================================================
+
+# Absorptive root C:N ratio (gC/gN)
+# Fixed at 66.39 ± 0.01
+frootacn 1 66.38 66.40
+
+# Absorptive root C:P ratio (gC/gP)
+# Fixed at 363.0 ± 0.1
+frootacp 1 362.9 363.1
+
+# Absorptive root longevity (years)
+# Fixed at 1.297 ± 0.001
+froota_long 1 1.296 1.298
+
+# Absorptive root labile fraction (unitless)
+# Fixed at 0.2315 ± 0.0001
+fra_flab 1 0.2314 0.2316
+
+# Absorptive root cellulose fraction (unitless)
+# Fixed at 0.3576 ± 0.0001
+fra_fcel 1 0.3575 0.3577
+
+# Absorptive root leaf-to-fineroot ratio (unitless)
+# Fixed at 0.4366 ± 0.0001
+froota_leaf 1 0.4365 0.4367
+
+# ============================================================================
+# MYCORRHIZAL ROOT PARAMETERS (FIXED AT BEST VALUES)
+# ============================================================================
+
+# Mycorrhizal root C:N ratio (gC/gN)
+# Fixed at 38.78 ± 0.01
+frootmcn 1 38.77 38.79
+
+# Mycorrhizal root C:P ratio (gC/gP)
+# Fixed at 284.9 ± 0.1
+frootmcp 1 284.8 285.0
+
+# Mycorrhizal root longevity (years)
+# Fixed at 0.4705 ± 0.0001
+frootm_long 1 0.4704 0.4706
+
+# Mycorrhizal root labile fraction (unitless)
+# Fixed at 0.2070 ± 0.0001
+frm_flab 1 0.2069 0.2071
+
+# Mycorrhizal root cellulose fraction (unitless)
+# Fixed at 0.5844 ± 0.0001
+frm_fcel 1 0.5843 0.5845
+
+# ============================================================================
+# NOTES
+# ============================================================================
+#
+# Rationale for parameter reduction:
+#
+# 1. Sensitivity analysis showed that 99.9% of flux variance is explained by
+#    the 3 photosynthesis parameters (slatop, leafcn, flnr)
+#
+# 2. All 17 root parameters combined account for <0.1% of variance
+#
+# 3. With only 3 annual observations (GPP, ER, NEE), we cannot reliably
+#    constrain 20 parameters - this leads to non-identifiability
+#
+# 4. The initial 20-parameter MCMC had:
+#    - ESS = 6-7 (need >100)
+#    - Acceptance rate = 6.3% (target 20-40%)
+#    - Perfect parameter correlations (r > 0.99)
+#    - Condition number = 2.86×10⁷ (severely ill-conditioned)
+#
+# 5. By fixing insensitive parameters at reasonable values, we achieve:
+#    - Identifiable parameter estimates
+#    - Proper MCMC convergence
+#    - Meaningful uncertainty quantification
+#    - Computational efficiency (faster mixing)
+#
+# Expected MCMC performance with this file:
+# - Acceptance rate: 20-40% (optimal range)
+# - ESS: >1000 (good mixing)
+# - Autocorrelation time: <100 iterations
+# - Parameter correlations: <0.7 (manageable)
+#
+# The root parameters are fixed at their best estimates from the initial
+# wide-range MCMC, which are physiologically reasonable and consistent with
+# Wang et al. (2023) reported values for temperate deciduous forests.

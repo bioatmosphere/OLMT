@@ -14,7 +14,7 @@ caseroot= rootdir+'/e3sm_cases'
 runroot = rootdir+'/e3sm_run'
 #TODO:  add option to clone repository
 #modelroot = '/gpfs/wolf2/cades/cli185/proj-shared/zdr/E3SM'  #Existing E3SM code directory
-modelroot = os.environ['HOME']+'/models/E3SM' 
+modelroot = os.environ['HOME']+'/E3SM' 
 
 #Set the full path of the bld directory to use a pre-built executable. Set exeroot='' to build 
 exeroot = ''
@@ -23,10 +23,12 @@ exeroot = ''
 
 runtype = 'site'               #site,latlon_list,latlon_bbox
 mettype = 'gswp3'               #Site or reanalysis product to use (site, gswp3, crujra)
-case_suffix = ''               #Identifier for cases (leave blank if none)
+case_suffix = ''
+#case_suffix = 'optimized'               #Identifier for cases (leave blank if none)
+#case_suffix = 'baseline'
 
 if (runtype == 'site'):
-    sites = ['AU-Tum']               #Site name, list of site names, or 'all' for all sites in site group
+    sites = ['IT-Cpz']               #Site name, list of site names, or 'all' for all sites in site group
     sitegroup = 'TAM'       #Sites defined in <inputdata>/lnd/clm2/PTCLM/<sitegroup>_sitedata.txt
     numproc = 1
 else:
@@ -52,7 +54,7 @@ pft_duplicates = 1          #Construct a file with n pfts, all using the same pa
 #Run lengths/dates
 nyears_ad      =  200      #number of years for ad spinup
 nyears_final   =  500      #number of years for final spinup, SP run, or FATES C-only
-nyears_trans   =  165      #number of years for transient run 
+nyears_trans   =  165      #number of years for transient run: crujra: 175(2024); gswp3:165(2014)
 run_startyear  = 1850      #Starting year for transient run, SP run or FATES C-only
 
 
@@ -63,19 +65,19 @@ run_startyear  = 1850      #Starting year for transient run, SP run or FATES C-o
 case_options={}
 case_options['tam'] = True
 case_options['use_nofire'] = '.true.'
-case_options['paramfile'] = '/ccsopen/home/6lw/models/OLMT/inputdata/tam_params.nc' 
+case_options['paramfile'] = '/home/6lw/OLMT/inputdata/tam_params_opt_01.nc' 
 #case_options['metdir'] = '/gpfs/wolf2/cades/cli185/proj-shared/zdr/elm-olmt/runscripts'
 #case_options['fates_paramfile'] = inputdata+'/lnd/clm2/paramdata/fates_params_api.32.0.0_pft1_c231215.nc'
 #case_options['use_fates_planthydro'] = '.true.'
 
 #--------------------ensemble options------------------------------------------------
 
-parm_list      = 'inputdata/PTTAM/AU-Tum_parm_list_optimized_v1_FIXED'  #Set parameter list (leave blank for no ensemble)
+parm_list      = '' #'inputdata/PTTAM/AU-Tum_parm_list_tam_v2_calibration'  #Set parameter list (leave blank for no ensemble)
 nsamples       =  1000    #number of samples to run
 np_ensemble    =  384    #number of ensemble numbers to run in parallel (MUST be <= nsamples)
 ensemble_file  = ''     #File containing samples (if blank, OLMT will generate one)
 postproc_vars  = ['GPP','ER','NPP','NEE','BGNPP','NEP','NBP','TLAI','FPSN','SOILC','TOTECOSYSC','QFLX_EVAP_TOT','EFLX_LH_TOT','FSH','FROOTTC','FROOTAC','FROOTMC']  #Variables to automatically post-processpostproc_startyear = 1860
-postproc_startyear = 2001
+postproc_startyear = 2000
 postproc_endyear   = 2014
 postproc_freq      = 'annual'   #Can be daily, monthly, annual, hourly(not tested)
 

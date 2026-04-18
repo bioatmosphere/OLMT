@@ -1,0 +1,26 @@
+# Annual output values extracted from ELM simulation
+# Source file: tmp1vvc80xm.nc
+# Years: 2003 - 2008
+#
+# Variables:
+#   GPP: gross primary production (annual sum, gC/m2/yr)
+#   NPP: net primary production (annual sum, gC/m2/yr)
+#   ER: total ecosystem respiration, autotrophic + heterotrophic (annual sum, gC/m2/yr)
+#   NEE: net ecosystem exchange of carbon, includes fire, landuse, harvest, and hrv_xsmrpool flux, positive for source (annual sum, gC/m2/yr)
+#   NBP: net biome production, includes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   NEP: net ecosystem production, excludes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   HR: total heterotrophic respiration (annual sum, gC/m2/yr)
+#   FSH: sensible heat (annual mean, W/m^2)
+#   EFLX_LH_TOT: total latent heat flux [+ to atm] (annual mean, W/m^2)
+#   FPSN: photosynthesis (annual mean daily flux, umol/m2/day)
+#   TOTSOMC: total soil organic matter carbon (annual mean, gC/m^2)
+#   TOTVEGC: total vegetation carbon, excluding cpool (annual mean, gC/m^2)
+#   TOTECOSYSC: total ecosystem carbon, incl veg but excl cpool but excl product pools (annual mean, gC/m^2)
+#
+Year	GPP	NPP	ER	NEE	NBP	NEP	HR	FSH	EFLX_LH_TOT	FPSN	TOTSOMC	TOTVEGC	TOTECOSYSC
+2003	135.506775	31.581577	147.096619	11.589846	-0.000000	-0.000000	43.171421	12.831108	9.360613	30909.285156	25414.978516	127.340942	25640.509766
+2004	155.925934	74.832840	135.884140	-20.041809	0.000001	0.000001	54.791027	10.131899	10.696667	35566.925781	25413.750000	132.068680	25643.681641
+2005	161.510681	24.699783	183.669296	22.158621	-0.000001	-0.000001	46.858395	14.253699	9.827963	36840.816406	25408.742188	139.700150	25644.460938
+2006	127.003265	71.008659	110.530075	-16.473194	0.000001	0.000001	54.535480	14.886390	9.660424	28969.623047	25406.728516	131.157578	25638.027344
+2007	181.159851	30.351419	192.918869	11.759014	-0.000000	-0.000000	42.110432	17.411785	5.680267	41322.816406	25405.835938	141.197266	25644.015625
+2008	129.387207	60.651733	118.996269	-10.390942	0.000000	0.000000	50.260792	12.543365	6.847595	29513.406250	25403.732422	132.082230	25640.517578

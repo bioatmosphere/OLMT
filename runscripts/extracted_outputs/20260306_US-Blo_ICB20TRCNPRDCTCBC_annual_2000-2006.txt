@@ -1,0 +1,27 @@
+# Annual output values extracted from ELM simulation
+# Source file: tmp3r84pztr.nc
+# Years: 2000 - 2006
+#
+# Variables:
+#   GPP: gross primary production (annual sum, gC/m2/yr)
+#   NPP: net primary production (annual sum, gC/m2/yr)
+#   ER: total ecosystem respiration, autotrophic + heterotrophic (annual sum, gC/m2/yr)
+#   NEE: net ecosystem exchange of carbon, includes fire, landuse, harvest, and hrv_xsmrpool flux, positive for source (annual sum, gC/m2/yr)
+#   NBP: net biome production, includes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   NEP: net ecosystem production, excludes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   HR: total heterotrophic respiration (annual sum, gC/m2/yr)
+#   FSH: sensible heat (annual mean, W/m^2)
+#   EFLX_LH_TOT: total latent heat flux [+ to atm] (annual mean, W/m^2)
+#   FPSN: photosynthesis (annual mean daily flux, umol/m2/day)
+#   TOTSOMC: total soil organic matter carbon (annual mean, gC/m^2)
+#   TOTVEGC: total vegetation carbon, excluding cpool (annual mean, gC/m^2)
+#   TOTECOSYSC: total ecosystem carbon, incl veg but excl cpool but excl product pools (annual mean, gC/m^2)
+#
+Year	GPP	NPP	ER	NEE	NBP	NEP	HR	FSH	EFLX_LH_TOT	FPSN	TOTSOMC	TOTVEGC	TOTECOSYSC
+2000	1362.558472	728.315491	1223.284668	-71.645515	0.000002	0.000004	589.041748	57.843193	49.575241	310801.531250	28235.925781	12268.789062	48734.621094
+2001	1129.645386	554.406921	1075.364990	12.418993	-0.000000	0.000002	500.126587	67.197388	39.322701	257673.671875	28238.552734	12311.711914	48778.058594
+2002	1246.299194	602.409119	1156.838867	-23.601074	0.000001	0.000003	512.948730	66.507576	41.860332	284282.625000	28242.822266	12277.006836	48775.101562
+2003	1337.494141	681.558350	1203.964844	-68.073372	0.000002	0.000004	548.028992	64.940651	43.073994	305084.312500	28253.687500	12292.537109	48832.335938
+2004	1259.962646	661.919373	1119.575806	-75.093575	0.000002	0.000004	521.532532	67.452354	39.913872	287399.281250	28264.722656	12322.216797	48913.796875
+2005	1491.001343	826.871216	1261.066284	-164.191833	0.000005	0.000007	596.936035	56.578392	50.917850	340099.500000	28270.509766	12432.109375	49013.316406
+2006	1282.865356	696.952637	1115.390015	-100.398964	0.000003	0.000005	529.477295	63.838463	43.287613	292623.343750	28274.492188	12558.997070	49147.332031

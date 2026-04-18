@@ -1,0 +1,28 @@
+# Annual output values extracted from ELM simulation
+# Source file: tmpdcbomk_t.nc
+# Years: 2007 - 2014
+#
+# Variables:
+#   GPP: gross primary production (annual sum, gC/m2/yr)
+#   NPP: net primary production (annual sum, gC/m2/yr)
+#   ER: total ecosystem respiration, autotrophic + heterotrophic (annual sum, gC/m2/yr)
+#   NEE: net ecosystem exchange of carbon, includes fire, landuse, harvest, and hrv_xsmrpool flux, positive for source (annual sum, gC/m2/yr)
+#   NBP: net biome production, includes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   NEP: net ecosystem production, excludes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   HR: total heterotrophic respiration (annual sum, gC/m2/yr)
+#   FSH: sensible heat (annual mean, W/m^2)
+#   EFLX_LH_TOT: total latent heat flux [+ to atm] (annual mean, W/m^2)
+#   FPSN: photosynthesis (annual mean daily flux, umol/m2/day)
+#   TOTSOMC: total soil organic matter carbon (annual mean, gC/m^2)
+#   TOTVEGC: total vegetation carbon, excluding cpool (annual mean, gC/m^2)
+#   TOTECOSYSC: total ecosystem carbon, incl veg but excl cpool but excl product pools (annual mean, gC/m^2)
+#
+Year	GPP	NPP	ER	NEE	NBP	NEP	HR	FSH	EFLX_LH_TOT	FPSN	TOTSOMC	TOTVEGC	TOTECOSYSC
+2007	1426.439697	772.757446	1330.639282	-63.829224	0.000002	0.000003	676.957092	27.473108	58.833324	325372.875000	27231.748047	20740.957031	53841.140625
+2008	1581.805664	926.456787	1473.453613	-77.507019	0.000002	0.000003	818.104858	27.182417	65.139381	360812.062500	27237.392578	20798.490234	53893.769531
+2009	1688.462036	1016.475891	1468.022827	-188.121689	0.000006	0.000007	796.036865	25.847588	64.749847	385140.562500	27233.791016	20988.439453	54055.671875
+2010	1674.396851	969.067688	1434.196167	-207.187714	0.000007	0.000008	728.867004	20.752380	69.372498	381932.281250	27235.246094	21168.439453	54246.285156
+2011	1392.597290	734.679260	1344.927490	-16.630749	0.000001	0.000002	687.009644	24.745102	67.417778	317653.375000	27242.570312	21257.488281	54370.546875
+2012	1276.032837	613.766418	1313.952026	67.619545	-0.000002	-0.000001	651.685608	31.370066	59.904099	291064.875000	27266.183594	21189.443359	54344.023438
+2013	1395.273804	764.282166	1353.064819	-13.710105	0.000000	0.000001	722.073181	28.677248	57.817989	318263.937500	27278.437500	21076.972656	54260.503906
+2014	1522.070679	892.669312	1377.980591	-119.333900	0.000004	0.000005	748.579346	28.152866	61.346363	347186.437500	27285.375000	21187.781250	54396.992188

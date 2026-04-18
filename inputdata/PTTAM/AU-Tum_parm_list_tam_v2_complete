@@ -1,0 +1,91 @@
+# AU-Tum TAM Parameter List - Version 2 Complete (All 17 TAM parameters, zero-GPP prevention)
+# Based on empirical analysis of 1000-member ensemble (analyze_zero_gpp.py)
+#
+# CRITICAL FINDING: Original ensemble had 34.2% zero-GPP cases
+# Root cause: Low root C:N + Long absorptive root longevity = N sequestration in roots
+#
+# This version keeps ALL original TAM parameters but adjusts ranges to avoid zero GPP
+# Format: parameter_name distribution_type min max
+# ==================================================================================
+
+# ROOT C:N RATIOS (Transport, Absorptive, Mycorrhizal)
+# CRITICAL: These are the most important parameters - 4-6% impact on GPP
+# Low C:N (high N content) causes zero GPP by sequestering N in roots
+# Analysis shows: froottcn needs >100, frootacn needs >70 to avoid zero GPP
+froottcn 5 95 165    # Transport root C:N (was 20-184, min raised 20→95)
+frootacn 5 65 115    # Absorptive root C:N (was 11-119, min raised 11→65)
+frootmcn 5 12 23     # Mycorrhizal root C:N (was 7-25, narrowed for safety)
+
+# ROOT C:P RATIOS (Transport, Absorptive, Mycorrhizal)
+# NOTE: These show correlation with each other (expected for root functional types)
+# Kept all three to preserve TAM framework, narrowed ranges slightly
+froottcp 5 450 950   # Transport root C:P (was 375-1125, tightened)
+frootacp 5 300 700   # Absorptive root C:P (was 250-750, tightened)
+frootmcp 5 100 1400  # Mycorrhizal root C:P (was 10-1600, raised minimum)
+
+# ROOT LONGEVITY (Transport, Absorptive, Mycorrhizal)
+# CRITICAL: Long absorptive roots + high N = zero GPP
+# Analysis shows: froota_long > 1.23 causes zero GPP (in combination with low C:N)
+# Adjusted to safe range while maintaining TAM variation
+froott_long 5 4.5 9  # Transport root longevity (years) (was 3-10, narrowed)
+froota_long 5 0.7 1.3 # Absorptive root longevity (years) (was 0.5-4, max reduced 4→1.3)
+frootm_long 5 0.25 0.8 # Mycorrhizal root longevity (years) (was 0.13-1, adjusted)
+
+# ROOT CHEMISTRY - LABILE FRACTIONS (Transport, Absorptive, Mycorrhizal)
+# Lower impact but kept for TAM completeness
+# Tightened ranges to avoid extreme chemistry combinations
+frt_flab 5 0.15 0.32  # Transport root labile fraction (was 0.1-0.35, narrowed)
+frt_fcel 5 0.38 0.62  # Transport root cellulose fraction (was 0.35-0.65, narrowed)
+fra_flab 5 0.15 0.32  # Absorptive root labile fraction (was 0.1-0.35, narrowed)
+fra_fcel 5 0.38 0.62  # Absorptive root cellulose fraction (was 0.35-0.65, narrowed)
+frm_flab 5 0.15 0.32  # Mycorrhizal root labile fraction (was 0.1-0.35, narrowed)
+frm_fcel 5 0.38 0.62  # Mycorrhizal root cellulose fraction (was 0.35-0.65, narrowed)
+
+# ROOT-LEAF ALLOCATION (Transport, Absorptive)
+# Controls carbon partitioning to leaves - important for GPP
+# Avoid very low values that would limit leaf allocation
+froott_leaf 5 0.12 0.35  # Transport root to leaf allocation (was 0.05-0.4, raised min)
+froota_leaf 5 0.25 0.55  # Absorptive root to leaf allocation (was 0.2-0.6, slightly adjusted)
+
+# ==================================================================================
+# PARAMETER COUNT: 17 (ALL original TAM parameters preserved)
+#
+# ZERO GPP PREVENTION STRATEGY:
+#   Original ensemble: 342/1000 (34.2%) produced zero GPP
+#   Root cause identified: Low root C:N + Long absorptive roots = N sequestration
+#
+#   Key adjustments to prevent zero GPP:
+#   1. froottcn min:    20 → 95  (avoid N-luxury transport roots)
+#   2. frootacn min:    11 → 65  (avoid N-luxury absorptive roots)
+#   3. froota_long max:  4 → 1.3 (avoid long-lived N-rich absorptive roots)
+#   4. froott_leaf min: 0.05 → 0.12 (ensure minimum leaf allocation)
+#
+#   Expected result: <5% zero GPP cases (down from 34.2%)
+#
+# PARAMETER CORRELATION NOTES:
+#   - CN ratios for T/A/M roots show some correlation (biologically expected)
+#   - CP ratios show correlation (biologically expected)
+#   - This is acceptable - TAM framework depends on root type differentiation
+#   - Use informative priors in MCMC to handle correlation
+#
+# BIOLOGICAL CONSTRAINTS RESPECTED:
+#   - Transport roots: Long-lived, low N, high lignin
+#   - Absorptive roots: Short-lived, high N, low lignin
+#   - Mycorrhizal associations: Variable chemistry, moderate longevity
+#
+# CALIBRATION RECOMMENDATIONS:
+#   - Ensemble size: 1000 samples minimum (17 parameters × 60 samples/param)
+#   - Target surrogate R²: >0.90 for GPP, ER, NPP; >0.85 for NEE
+#   - Dynamic range: Should cover 2500-4500 gC/m²/year for GPP
+#
+# WARNING:
+#   This TAM-only configuration (no leaf parameters) may have limited GPP range
+#   If surrogates show insufficient range after 1000-member ensemble:
+#     → Consider adding leafcn, slatop to expand dynamic range
+#     → See AU-Tum_parm_list_tam_v2_robust for version with leaf parameters
+#
+# VALIDATION:
+#   After running ensemble, validate with: check_AUTum_surrogate_robustness.py
+#   If zero GPP persists, use: analyze_zero_gpp.py for further diagnosis
+#
+# ==================================================================================

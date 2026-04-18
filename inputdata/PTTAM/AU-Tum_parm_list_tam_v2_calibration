@@ -1,0 +1,139 @@
+# AU-Tum TAM Parameter List - Version 2 Calibration (Zero-GPP prevention + GPP/ER calibration)
+# Based on empirical analysis + AU-Tum FLUXNET observations
+#
+# OBSERVATIONS (2001-2014):
+#   GPP:  2903-4323 gC/m²/year (mean 3404)
+#   RECO: 2134-3355 gC/m²/year (mean 2721)
+#   NEE:  -1306 to -359 gC/m²/year (mean -667)
+#
+# MODEL GAP: TAM-only produces 0-1586 gC/m²/year (only 46% of observed GPP)
+# SOLUTION: Add leaf photosynthesis and respiration parameters
+#
+# Format: parameter_name distribution_type min max
+# ==================================================================================
+
+# ==================================================================================
+# SECTION 1: TAM ROOT PARAMETERS (17 parameters)
+# All 17 original TAM parameters with zero-GPP prevention
+# ==================================================================================
+
+# ROOT C:N RATIOS (Transport, Absorptive, Mycorrhizal)
+# CRITICAL: Low C:N causes zero GPP by sequestering N in roots
+froottcn 5 95 165    # Transport root C:N (was 20-184, min raised to avoid zero GPP)
+frootacn 5 65 115    # Absorptive root C:N (was 11-119, min raised to avoid zero GPP)
+frootmcn 5 12 23     # Mycorrhizal root C:N (was 7-25, narrowed for safety)
+
+# ROOT C:P RATIOS (Transport, Absorptive, Mycorrhizal)
+froottcp 5 450 950   # Transport root C:P
+frootacp 5 300 700   # Absorptive root C:P
+frootmcp 5 100 1400  # Mycorrhizal root C:P
+
+# ROOT LONGEVITY (Transport, Absorptive, Mycorrhizal)
+# CRITICAL: Long absorptive roots + high N = zero GPP
+froott_long 5 4.5 9      # Transport root longevity (years)
+froota_long 5 0.7 1.3    # Absorptive root longevity (years) (max reduced to avoid zero GPP)
+frootm_long 5 0.25 0.8   # Mycorrhizal root longevity (years)
+
+# ROOT CHEMISTRY - LABILE FRACTIONS (Transport, Absorptive, Mycorrhizal)
+frt_flab 5 0.15 0.32  # Transport root labile fraction
+frt_fcel 5 0.38 0.62  # Transport root cellulose fraction
+fra_flab 5 0.15 0.32  # Absorptive root labile fraction
+fra_fcel 5 0.38 0.62  # Absorptive root cellulose fraction
+frm_flab 5 0.15 0.32  # Mycorrhizal root labile fraction
+frm_fcel 5 0.38 0.62  # Mycorrhizal root cellulose fraction
+
+# ROOT-LEAF ALLOCATION (Transport, Absorptive)
+froott_leaf 5 0.12 0.35  # Transport root to leaf allocation
+froota_leaf 5 0.25 0.55  # Absorptive root to leaf allocation
+
+# ==================================================================================
+# SECTION 2: LEAF PHOTOSYNTHESIS PARAMETERS (4 parameters)
+# CRITICAL: These parameters control GPP magnitude to match observations
+# ==================================================================================
+
+# Leaf Structure and N Content
+# These couple root nutrient uptake to photosynthetic capacity
+leafcn 5 20 32       # Leaf C:N ratio (lower = more N per leaf = higher vcmax)
+                     # Range: Literature 15-40, tightened to high-productivity end
+                     # Lower values increase leaf N → higher Rubisco content → higher GPP
+
+slatop 5 0.008 0.016 # Specific Leaf Area (m²/gC) at canopy top
+                     # Range: Literature 0.005-0.025, focused on realistic range
+                     # Higher values = more leaf area per carbon → higher GPP
+
+# Nitrogen Allocation in Leaves
+flnr 5 0.05 0.12     # Fraction of Leaf N in Rubisco
+                     # Range: Literature 0.03-0.20, focused on realistic range
+                     # Higher values = more N in photosynthetic machinery → higher vcmax
+                     # Critical for determining vcmax from leaf N content
+
+# Leaf Respiration
+# Controls baseline respiration (affects ER and NEE)
+#leafmr_base 5 8e-07 2.2e-06  # Leaf maintenance respiration base rate (gC/gC/s)
+                              # Range: ELM default ~1.5e-06, allowing variation
+                              # Higher values increase leaf respiration → higher ER
+
+# ==================================================================================
+# PARAMETER COUNT: 21 total
+#   - 17 TAM root parameters (complete framework)
+#   - 4 leaf/photosynthesis parameters (calibration enablers)
+#
+# CALIBRATION STRATEGY:
+#   Root parameters control:
+#     - Nutrient uptake efficiency (CN, CP ratios)
+#     - Nutrient turnover (longevity)
+#     - Root allocation (leaf allocation fractions)
+#
+#   Leaf parameters control:
+#     - Nutrient → photosynthesis conversion (leafcn, flnr)
+#     - Light capture (slatop)
+#     - Respiration costs (leafmr_base)
+#
+#   Together: Roots supply N → Leaves convert N to photosynthesis
+#
+# EXPECTED DYNAMIC RANGE:
+#   With these parameters, model should reach:
+#     GPP:  2500-4500 gC/m²/year (covers observed 2903-4323)
+#     RECO: 2000-3500 gC/m²/year (covers observed 2134-3355)
+#     NEE:  -1500 to -200 gC/m²/year (covers observed -1306 to -359)
+#
+# ZERO GPP PREVENTION:
+#   Expected <5% zero GPP cases (down from original 34.2%)
+#   Key fixes maintained from v2_complete
+#
+# ENSEMBLE SIZE RECOMMENDATION:
+#   - 1000 samples minimum (21 parameters × ~48 samples/param)
+#   - 1500 samples ideal (21 parameters × ~70 samples/param)
+#   - Target surrogate R² > 0.90 for all variables
+#
+# MCMC CALIBRATION RECOMMENDATIONS:
+#   Primary calibration targets:
+#     - GPP (highest sensitivity, best constrained)
+#     - RECO/ER (secondary, complementary to GPP)
+#
+#   Parameter prior considerations:
+#     - Use informative priors for correlated TAM parameters (CN ratios)
+#     - Uniform priors OK for leaf parameters (independent effects)
+#     - Consider constraining leafcn based on site measurements if available
+#
+# SENSITIVITY EXPECTATIONS:
+#   Most influential parameters (expected):
+#     1. leafcn (5-10% GPP impact)
+#     2. slatop (5-10% GPP impact)
+#     3. flnr (3-8% GPP impact)
+#     4. froottcn, frootacn (4-6% GPP impact each)
+#     5. froota_long (2-3% GPP impact)
+#
+# BIOLOGICAL INTERPRETATION:
+#   This parameter set represents:
+#     - Root functional diversity (TAM framework)
+#     - Root-leaf coordination in N use
+#     - Photosynthetic capacity variation
+#     - Respiration cost trade-offs
+#
+#   Calibrated parameters will reveal:
+#     - Which root functional type dominates at AU-Tum
+#     - How efficiently roots supply N to leaves
+#     - Optimal leaf N investment strategy for this site
+#
+# ==================================================================================

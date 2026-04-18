@@ -4038,6 +4038,10 @@ def MCMC(self, parms, myvars, nevals,myobs_05,myobs_95,mcmc_type='uniform', nbur
     
     chain_afterburn = chain[0:nparms, burnin_end_idx:actual_chain_length]
     chain_sorted = chain_afterburn
+
+    # Calculate actual number of post-burn-in samples (for quantile calculation)
+    n_postburn_samples = chain_afterburn.shape[1]
+
     output_sorted={}
     for v in myvars:
       output_sorted[v] = output[v][0:self.nobs[v], burnin_end_idx:actual_chain_length]
@@ -4113,16 +4117,16 @@ def MCMC(self, parms, myvars, nevals,myobs_05,myobs_95,mcmc_type='uniform', nbur
     parm95=open(UQ_output+'/MCMC_output/parms_95pctconf.txt','w')
     for p in range(0,nparms):
         parm95.write(str(self.ensemble_parms[p])+' '+ \
-        str(chain_sorted[p,int(0.025*(nevals-nburn*burnsteps))])+' '+ \
-        str(chain_sorted[p,int(0.975*(nevals-nburn*burnsteps))])+'\n')
+        str(chain_sorted[p,int(0.025*n_postburn_samples)])+' '+ \
+        str(chain_sorted[p,int(0.975*n_postburn_samples)])+'\n')
     parm95.close()
     print("Ratio of accepted steps to total steps:")
     print(float(accepted_tot)/nevals)
     out95=open(UQ_output+'/MCMC_output/outputs_95pctconf.txt','w')
     for v in myvars:
       for p in range(0,self.nobs[v]):
-        out95.write(v+' '+str(output_sorted[v][p,int(0.025*(nevals-nburn*burnsteps))])+' '+ \
-        str(output_sorted[v][p,int(0.975*(nevals-nburn*burnsteps))])+'\n')
+        out95.write(v+' '+str(output_sorted[v][p,int(0.025*n_postburn_samples)])+' '+ \
+        str(output_sorted[v][p,int(0.975*n_postburn_samples)])+'\n')
     out95.close()
     #make parameter histogram plots
     for p in range(0,nparms):
@@ -4167,8 +4171,8 @@ def MCMC(self, parms, myvars, nevals,myobs_05,myobs_95,mcmc_type='uniform', nbur
       ax.plot(x,output_best_v,'r', label = 'Model best')
 
       # Trim sorted outputs to match observation length
-      output_sorted_05 = output_sorted[v][:,int(0.05*(nevals-nburn*burnsteps))].flatten()
-      output_sorted_95 = output_sorted[v][:,int(0.95*(nevals-nburn*burnsteps))].flatten()
+      output_sorted_05 = output_sorted[v][:,int(0.05*n_postburn_samples)].flatten()
+      output_sorted_95 = output_sorted[v][:,int(0.95*n_postburn_samples)].flatten()
       if len(output_sorted_05) > len(obs_plot):
           output_sorted_05 = output_sorted_05[:len(obs_plot)]
       if len(output_sorted_95) > len(obs_plot):

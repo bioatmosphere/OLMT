@@ -1,0 +1,28 @@
+# Annual output values extracted from ELM simulation
+# Source file: tmpdx6c977y.nc
+# Years: 2007 - 2014
+#
+# Variables:
+#   GPP: gross primary production (annual sum, gC/m2/yr)
+#   NPP: net primary production (annual sum, gC/m2/yr)
+#   ER: total ecosystem respiration, autotrophic + heterotrophic (annual sum, gC/m2/yr)
+#   NEE: net ecosystem exchange of carbon, includes fire, landuse, harvest, and hrv_xsmrpool flux, positive for source (annual sum, gC/m2/yr)
+#   NBP: net biome production, includes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   NEP: net ecosystem production, excludes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   HR: total heterotrophic respiration (annual sum, gC/m2/yr)
+#   FSH: sensible heat (annual mean, W/m^2)
+#   EFLX_LH_TOT: total latent heat flux [+ to atm] (annual mean, W/m^2)
+#   FPSN: photosynthesis (annual mean daily flux, umol/m2/day)
+#   TOTSOMC: total soil organic matter carbon (annual mean, gC/m^2)
+#   TOTVEGC: total vegetation carbon, excluding cpool (annual mean, gC/m^2)
+#   TOTECOSYSC: total ecosystem carbon, incl veg but excl cpool but excl product pools (annual mean, gC/m^2)
+#
+Year	GPP	NPP	ER	NEE	NBP	NEP	HR	FSH	EFLX_LH_TOT	FPSN	TOTSOMC	TOTVEGC	TOTECOSYSC
+2007	644.639832	244.587494	625.653748	-18.986116	0.000001	0.000001	225.601395	46.757702	27.850519	147043.265625	6285.008789	581.272522	6983.214844
+2008	465.082336	155.394547	607.587952	142.505630	-0.000005	-0.000005	297.900177	49.792198	22.181339	106085.945312	6334.590332	382.227325	6880.249512
+2009	481.108521	266.513245	427.814911	-53.293606	0.000002	0.000002	213.219681	48.333862	28.053398	109741.531250	6352.113770	348.210327	6789.047852
+2010	764.818237	319.049835	686.562500	-78.255684	0.000002	0.000002	240.794174	43.736473	31.594885	174456.109375	6321.486328	539.755066	6965.503418
+2011	696.871521	199.321548	776.872559	80.000954	-0.000003	-0.000003	279.322479	40.834339	32.585621	158957.375000	6355.324707	395.280518	6886.607422
+2012	552.797913	298.269043	480.999115	-71.798813	0.000002	0.000002	226.470230	43.377853	28.395269	126093.984375	6364.916992	395.040924	6854.880859
+2013	554.199951	197.349731	567.661865	13.462008	-0.000000	-0.000000	210.811707	44.559322	25.864399	126413.773438	6343.845703	505.376099	6942.413574
+2014	582.923767	274.614532	554.945129	-27.978685	0.000001	0.000001	246.635834	43.836082	26.797558	132965.734375	6334.318359	543.785095	6983.434082

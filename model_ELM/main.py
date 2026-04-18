@@ -178,6 +178,9 @@ class ELMcase():
     elif ('chrysalis' in self.machine):
         self.project='e3sm'
         self.queue='compute'
+    elif ('pflogin' in self.machine):
+        self.project='hpcl-cli185'
+        self.queue='serial'
 
   def get_model_directories(self):
     if (not os.path.exists(self.modelroot)):
@@ -442,7 +445,7 @@ class ELMcase():
         if ('era5' in self.forcing):
             self.met_endyear=2023
         if ('crujra' in self.forcing):
-            self.met_endyear=2022
+            self.met_endyear=2024
         if ('isimip' in self.forcing):
             self.met_startyear=1951
         #Assume we want a 20-year spinup cycle
@@ -959,7 +962,21 @@ class ELMcase():
         result = subprocess.run(cmd, stderr=subprocess.STDOUT, \
                 stdout=subprocess.PIPE, text=True)
         output = result.stdout.strip()
-        jobnum = int(output.split()[-1])
+        if result.returncode != 0:
+            print('Error: case.submit failed (rc='+str(result.returncode)+'):')
+            print(output[-2000:])
+            raise RuntimeError('case.submit failed for '+self.casedir)
+        m = re.search(r'Submitted job .* with id (\d+)', output)
+        if m is None:
+            m = re.search(r'Submitted job id is (\d+)', output)
+        if m is None:
+            ints = re.findall(r'\b(\d+)\b', output)
+            if not ints:
+                print(output[-2000:])
+                raise RuntimeError('Could not parse job id from case.submit output')
+            jobnum = int(ints[-1])
+        else:
+            jobnum = int(m.group(1))
         print('\nSubmitted '+str(jobnum))
     os.chdir(self.OLMTdir)
 

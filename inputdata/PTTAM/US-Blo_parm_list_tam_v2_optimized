@@ -1,0 +1,206 @@
+# US-Blo Optimized Parameter List v2 (2025-10-30)
+# Site: US-Blo (Temperate Deciduous Broadleaf Forest)
+# PFT 1: Needleleaf Evergreen Temperate Tree
+#
+# Based on surrogate robustness diagnostics that revealed:
+# 1. Poor surrogate quality (R² < 0.70) due to weak parameter influences
+# 2. Insufficient dynamic range (GPP range only 106 gC/m²/year)
+# 3. Parameter identifiability issues (perfect correlations)
+#
+# KEY CHANGES FROM ORIGINAL:
+# 1. Added photosynthesis parameters (leafcn, flnr, slatop) -> strong GPP control
+# 2. Removed redundant root pool parameters (kept only "t" pools, removed "a" and "m")
+# 3. Kept most influential root parameters from sensitivity analysis
+# 4. Adjusted ranges for temperate forest (not eucalyptus like AU-Tum)
+#
+# Format: parameter_name pft min max
+# For ensemble: uniform sampling between min/max
+# For MCMC: can optionally specify distributions in separate config
+
+# ============================================================================
+# PHOTOSYNTHESIS PARAMETERS (CRITICAL FOR GPP)
+# ============================================================================
+
+# Specific Leaf Area - top of canopy (m² leaf area / gC)
+# Temperate deciduous: 0.015-0.030 m²/gC (thinner leaves than evergreen)
+# Higher SLA = more leaf area = more light interception = higher GPP
+# Expected impact: ±30-40% GPP change
+slatop 1 0.015 0.030
+
+# Leaf C:N ratio (gC/gN)
+# Temperate deciduous: 20-40 (lower C:N than evergreen conifers)
+# Lower C:N = more leaf N = higher vcmax25 = more photosynthesis
+# ELM calculates: vcmax25 = f(1/leafcn, flnr)
+# Expected impact: ±30-40% GPP change
+leafcn 1 20 40
+
+# Fraction of leaf N in Rubisco (dimensionless)
+# Controls efficiency of converting leaf N to photosynthetic capacity
+# vcmax25 = flnr × leaf_N × conversion_factor
+# Temperate deciduous: 0.08-0.20 (typical for C3 trees)
+# Expected impact: ±20-30% GPP change
+flnr 1 0.08 0.20
+
+# ============================================================================
+# ROOT LONGEVITY PARAMETERS (HIGH SENSITIVITY FROM ORIGINAL ANALYSIS)
+# ============================================================================
+
+# Total fine root longevity (years)
+# GSA showed: 1.56% GPP change, 1.49% ER change per 10% parameter change
+# Controls root turnover rate -> affects ER and N cycling
+# Temperate forest: 1-7 years (wider than original 3-10)
+froott_long 1 1 7
+
+# Active fine root longevity (years)
+# GSA showed: 1.29% GPP change, 1.25% ER change
+# Narrower range than AU-Tum (temperate has less variability)
+froota_long 1 0.5 3
+
+# Mature fine root longevity (years)
+# GSA showed: 2.19% GPP change (highest root parameter sensitivity!)
+# This was the most influential root parameter
+# Temperate: 0.2-1.5 years (shorter than tropical/mediterranean)
+frootm_long 1 0.2 1.5
+
+# ============================================================================
+# ROOT C:N PARAMETERS (MODERATE SENSITIVITY, REMOVE REDUNDANCY)
+# ============================================================================
+
+# Total fine root C:N ratio (gC/gN)
+# GSA showed: 1.34% GPP change, NEE most sensitive (10%)
+# Controls root decomposition and N cycling
+# Temperate: 30-100 (wider than original 20-184)
+froottcn 1 30 100
+
+# NOTE: Removed frootacn and frootmcn due to perfect correlation
+# These parameters produced nearly identical model responses
+# Model likely only uses total root C:N, not individual pools
+
+# ============================================================================
+# ROOT C:P PARAMETERS (REMOVE REDUNDANT, KEEP TOTAL ONLY)
+# ============================================================================
+
+# Total fine root C:P ratio (gC/gP)
+# Retained but with adjusted range for temperate forest
+# Temperate: 400-1000 (narrower than original 375-1125)
+froottcp 1 400 1000
+
+# NOTE: Removed frootacp and frootmcp due to perfect correlation
+# Sensitivity analysis showed these have <0.3% individual effects
+# Not identifiable in calibration
+
+# ============================================================================
+# ROOT LITTER QUALITY PARAMETERS (RETAINED TOP PERFORMERS)
+# ============================================================================
+
+# Total fine root labile fraction (fraction)
+# GSA showed: 0.63% GPP change, 0.89% ER change
+# Controls decomposition rate of root litter
+frt_flab 1 0.10 0.35
+
+# Total fine root cellulose fraction (fraction)
+# GSA showed: minor effect on GPP/ER, but stronger on NEE
+frt_fcel 1 0.35 0.65
+
+# Active fine root cellulose fraction
+# Moderate effect on NEE (7.4% change)
+fra_fcel 1 0.35 0.65
+
+# Mature fine root cellulose fraction
+# Similar to above
+frm_fcel 1 0.35 0.65
+
+# NOTE: Removed most labile fraction parameters (fra_flab, frm_flab)
+# These showed <1% sensitivity
+
+# ============================================================================
+# ROOT-LEAF ALLOCATION PARAMETERS
+# ============================================================================
+
+# Total fine root to leaf allocation ratio
+# Controls biomass partitioning
+# Modest effect but helps with C allocation
+froott_leaf 1 0.1 0.4
+
+# Active fine root to leaf ratio
+froota_leaf 1 0.2 0.6
+
+# ============================================================================
+# PARAMETER COUNT: 15 parameters (vs 17 original)
+# ============================================================================
+# Removed: frootacn, frootmcn, frootacp, frootmcp, fra_flab, frm_flab (6 removed)
+# Added: slatop, leafcn, flnr (3 added)
+# Net reduction: 3 parameters
+#
+# Benefits:
+# - Eliminates perfect correlations (identifiability fixed)
+# - Adds strong GPP controls (photosynthesis parameters)
+# - Reduces parameter space dimensionality (faster ensemble)
+# - Maintains diversity of parameter types (roots, leaves, allocation)
+
+# ============================================================================
+# EXPECTED IMPROVEMENTS
+# ============================================================================
+# Original ensemble results:
+#   GPP: 858 ± 476 gC/m²/year (range: 0-1504)
+#   ER:  794 ± 433 gC/m²/year (range: 0-1272)
+#   Surrogate GPP range: only 106 gC/m²/year (1143-1249)
+#   Surrogate R²: 0.67-0.70 (POOR)
+#
+# Expected with new parameters:
+#   GPP: 1500-3000 gC/m²/year (leaf parameters drive 2-4× increase)
+#   ER:  1000-2500 gC/m²/year (coupled to GPP + root parameters)
+#   Surrogate GPP range: 500-1000 gC/m²/year (much wider!)
+#   Surrogate R²: >0.90 (GOOD) with increased ensemble size
+#
+# Mechanism:
+# - leafcn [20,40]: vcmax25 can vary 2× (40/20)
+# - flnr [0.08,0.20]: vcmax25 can vary 2.5× (0.20/0.08)
+# - slatop [0.015,0.030]: LAI can vary 2× (0.030/0.015)
+# - Combined multiplicative effect: 2 × 2.5 × 2 = 10× GPP range potential
+# - Root parameters add another 50-100% variation
+# - Total expected range: 5-8× original (matches target!)
+
+# ============================================================================
+# ENSEMBLE CONFIGURATION RECOMMENDATIONS
+# ============================================================================
+# With 15 parameters:
+# - Minimum ensemble size: 15 × 100 = 1500 members
+# - Recommended: 3000-5000 members (200-330× parameters)
+# - Sampling: Sobol sequence (better space-filling than LHS)
+#
+# In your run script:
+#   mycase.nsamples_ensemble = 3000
+#   mycase.ensemble_sampling = 'sobol'  # or 'lhs'
+#
+# Expected compute time (assuming 2 min/member):
+#   3000 members × 2 min = 6000 min = 100 hours = 4 days
+#   With 50 parallel jobs: 2 hours
+
+# ============================================================================
+# VALIDATION TARGETS (US-Blo site)
+# ============================================================================
+# Observed ranges from FLUXNET data (1997-2007):
+# - GPP: ~1500-2500 gC/m²/year (typical temperate deciduous)
+# - ER:  ~1000-2000 gC/m²/year
+# - NEE: ~-500 to +200 gC/m²/year (interannual variation)
+#
+# After retraining surrogates, verify:
+# - Ensemble GPP covers 1500-2500 range
+# - Surrogate R² > 0.90 for GPP, ER
+# - No parameter pairs with r > 0.95
+# - Run: python diagnose_USBlo_surrogate.py
+
+# ============================================================================
+# NOTES ON TEMPERATE VS TROPICAL DIFFERENCES
+# ============================================================================
+# US-Blo (temperate) vs AU-Tum (mediterranean eucalyptus):
+# - Higher SLA: 0.015-0.030 vs 0.005-0.020 (thinner leaves)
+# - Lower leaf C:N: 20-40 vs 20-50 (more nitrogen)
+# - Shorter root longevity: 1-7 vs 3-10 years (faster cycling)
+# - Lower flnr: 0.08-0.20 vs 0.05-0.40 (less variation)
+#
+# These ranges are based on:
+# - Kattge et al. (2011) TRY database
+# - Reich & Oleksyn (2004) leaf traits
+# - Gill & Jackson (2000) root longevity

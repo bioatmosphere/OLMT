@@ -1,0 +1,27 @@
+# Annual output values extracted from ELM simulation
+# Source file: tmpnmof2890.nc
+# Years: 2015 - 2021
+#
+# Variables:
+#   GPP: gross primary production (annual sum, gC/m2/yr)
+#   NPP: net primary production (annual sum, gC/m2/yr)
+#   ER: total ecosystem respiration, autotrophic + heterotrophic (annual sum, gC/m2/yr)
+#   NEE: net ecosystem exchange of carbon, includes fire, landuse, harvest, and hrv_xsmrpool flux, positive for source (annual sum, gC/m2/yr)
+#   NBP: net biome production, includes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   NEP: net ecosystem production, excludes fire, landuse, and harvest flux, positive for sink (annual mean, gC/m^2/s)
+#   HR: total heterotrophic respiration (annual sum, gC/m2/yr)
+#   FSH: sensible heat (annual mean, W/m^2)
+#   EFLX_LH_TOT: total latent heat flux [+ to atm] (annual mean, W/m^2)
+#   FPSN: photosynthesis (annual mean daily flux, umol/m2/day)
+#   TOTSOMC: total soil organic matter carbon (annual mean, gC/m^2)
+#   TOTVEGC: total vegetation carbon, excluding cpool (annual mean, gC/m^2)
+#   TOTECOSYSC: total ecosystem carbon, incl veg but excl cpool but excl product pools (annual mean, gC/m^2)
+#
+Year	GPP	NPP	ER	NEE	NBP	NEP	HR	FSH	EFLX_LH_TOT	FPSN	TOTSOMC	TOTVEGC	TOTECOSYSC
+2015	1830.168945	1084.295776	1677.379639	-127.493477	0.000004	0.000005	931.506348	38.564480	58.610256	417464.125000	31325.080078	24951.708984	63017.867188
+2016	1891.294800	1114.110596	1695.492554	-173.365570	0.000005	0.000006	918.308167	38.603958	60.483669	431407.062500	31315.035156	25184.537109	63157.804688
+2017	1908.043213	1131.141602	1657.824707	-230.111389	0.000007	0.000008	880.922913	42.235302	60.782902	435227.343750	31301.095703	25424.542969	63331.714844
+2018	1701.229858	972.480408	1559.508423	-123.520683	0.000004	0.000004	830.758911	41.879677	57.452751	388052.937500	31304.263672	25574.033203	63516.730469
+2019	1732.121826	983.604492	1649.259155	-66.229652	0.000002	0.000003	900.741821	41.506992	57.001026	395099.406250	31313.365234	25668.818359	63618.882812
+2020	1868.359863	1088.141724	1665.384155	-187.640106	0.000006	0.000006	885.166077	42.188866	58.739712	426175.531250	31306.726562	25843.654297	63740.789062
+2021	1834.748779	1068.891602	1704.561768	-115.932083	0.000004	0.000004	938.704407	39.162472	59.094601	418508.781250	31303.902344	26017.632812	63903.968750
