@@ -10,35 +10,37 @@ import numpy as np
 machine, rootdir, inputdata = get_machine_info(machine_name='')
 
 #set rootdir and inputdata below if you want to override defaults
+if machine == 'ornl-pflogin':
+    rootdir = '/scratch/hpcl-cli185/' + os.environ['USER']
 caseroot= rootdir+'/e3sm_cases'
 runroot = rootdir+'/e3sm_run'
 #TODO:  add option to clone repository
 #modelroot = '/gpfs/wolf2/cades/cli185/proj-shared/zdr/E3SM'  #Existing E3SM code directory
-modelroot = os.environ['HOME']+'/E3SM' 
+modelroot = os.environ['HOME']+'/ELM-TAM' 
 
 #Set the full path of the bld directory to use a pre-built executable. Set exeroot='' to build 
 exeroot = ''
 
 #----------------------Required inputs---------------------------------------------
 
-runtype = 'site'               #site,latlon_list,latlon_bbox
-mettype = 'gswp3'               #Site or reanalysis product to use (site, gswp3, crujra)
+runtype = 'latlon_bbox'        #site,latlon_list,latlon_bbox
+mettype = 'crujra2025'               #Site or reanalysis product to use (site, gswp3, crujra, crujra2025)
 case_suffix = ''
-#case_suffix = 'optimized'               #Identifier for cases (leave blank if none)
-#case_suffix = 'baseline'
+#case_suffix = 'TAM'               #Identifier for cases (leave blank if none)
+case_suffix = 'baseline'
 
 if (runtype == 'site'):
     sites = ['IT-Cpz']               #Site name, list of site names, or 'all' for all sites in site group
     sitegroup = 'TAM'       #Sites defined in <inputdata>/lnd/clm2/PTCLM/<sitegroup>_sitedata.txt
     numproc = 1
 else:
-    region_name = 'gradient'   #Set the name of the region/point list to be simulated
-    numproc = 5            #Number of processors, must be <= the number of active gridcells
+    region_name = 'coastal_LA' #Set the name of the region/point list to be simulated
+    numproc = 10           #Number of processors, must be <= the number of active gridcells
     if (runtype == 'latlon_list'):
         point_list_file = '/home/ac.ricciuto/models/elm-olmt/test_list.txt'   #file with a list of lat lons
 #If neither point_list or site is defined, it will use the bounds below.
-lat_bounds = [-90,90]
-lon_bounds = [-180,180]
+lat_bounds = [28.9, 30.6] #[28.8, 30.8]   #Coastal Louisiana
+lon_bounds = [-94.1, -88.5] #[-94.0, -88.8]
 res = 'hcru_hcru'          #Resolution of global files to extract from
 
 use_cpl_bypass = True      #Coupler bypass for meteorology
@@ -54,7 +56,7 @@ pft_duplicates = 1          #Construct a file with n pfts, all using the same pa
 #Run lengths/dates
 nyears_ad      =  200      #number of years for ad spinup
 nyears_final   =  500      #number of years for final spinup, SP run, or FATES C-only
-nyears_trans   =  165      #number of years for transient run: crujra: 175(2024); gswp3:165(2014)
+nyears_trans   =  175      #number of years for transient run: crujra: 175(2024); gswp3:165(2014)
 run_startyear  = 1850      #Starting year for transient run, SP run or FATES C-only
 
 
@@ -63,7 +65,8 @@ run_startyear  = 1850      #Starting year for transient run, SP run or FATES C-o
 #note:  use surffile, domainfile, pftdynfile, metdir instead of the standard namelist variables for those files.
 #case_options['option'] = value or [value1, value2, value3] if applying different options to different compsets
 case_options={}
-case_options['tam'] = True
+#case_options['tam'] = True
+#case_options['use_lch4'] = '.false.'
 case_options['use_nofire'] = '.true.'
 case_options['paramfile'] = '/home/6lw/OLMT/inputdata/tam_params_opt_01.nc' 
 #case_options['metdir'] = '/gpfs/wolf2/cades/cli185/proj-shared/zdr/elm-olmt/runscripts'

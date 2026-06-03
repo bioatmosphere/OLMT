@@ -12,8 +12,9 @@ Since this is a pure Python scientific computing project, there are no tradition
 
 ```bash
 # Setup conda environment (choose appropriate one for your machine)
-conda env create -f conda_envs/OLMT_baseline.yml
-conda activate OLMT_baseline
+module load miniforge3
+conda activate olmt-perl
+source .venv/bin/acitvate
 
 # Run a simulation using existing run scripts
 cd runscripts/

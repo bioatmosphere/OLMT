@@ -79,8 +79,8 @@ def subset_netcdf(self, index, input_file, output_file, keep2d=False):
             if keep2d:
                 lat_indices = [lat for lat, lon in index]
                 lon_indices = [lon for lat, lon in index]
-                var_subset = var_data.isel(lsmlat=slice(min(lat_indices), max(lat_indices)),
-                                           lsmlon=slice(min(lon_indices), max(lon_indices)))
+                var_subset = var_data.isel(lsmlat=slice(min(lat_indices), max(lat_indices) + 1),
+                                           lsmlon=slice(min(lon_indices), max(lon_indices) + 1))
             else:
                 var_subset = var_data.isel(lsmlat=xr.DataArray([lat for lat, lon in index], dims='gridcell'),
                                            lsmlon=xr.DataArray([lon for lat, lon in index], dims='gridcell'))
@@ -90,8 +90,8 @@ def subset_netcdf(self, index, input_file, output_file, keep2d=False):
                 # Use original 2D indexing
                 lat_indices = [lat for lat, lon in index]
                 lon_indices = [lon for lat, lon in index]
-                var_subset = var_data.isel(nj=slice(min(lat_indices), max(lat_indices)),
-                                           ni=slice(min(lon_indices), max(lon_indices)))
+                var_subset = var_data.isel(nj=slice(min(lat_indices), max(lat_indices) + 1),
+                                           ni=slice(min(lon_indices), max(lon_indices) + 1))
             else:
                 # Flatten to 1D
                 var_subset = var_data.isel(nj=xr.DataArray([lat for lat, lon in index], dims='gridcell'),

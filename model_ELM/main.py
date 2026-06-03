@@ -12,6 +12,41 @@ from .netcdf4_functions import *
 from datetime import datetime
 import xarray as xr
 
+
+def _wait_for_exe_settle(exe_path, fresh_age=90.0, post_swap_sleep=5.0):
+    # Guard against the shared-FS ETXTBSY race: after a fresh build on
+    # NFS/Lustre, compute nodes can execve e3sm.exe while their attribute
+    # cache still reports it as "open for write" (default acregmax=60s),
+    # producing "Text file busy".
+    #
+    # If the exe was written in the last fresh_age seconds, atomically
+    # replace it with a byte-identical copy. The copy has a new inode that
+    # no other client has ever cached, sidestepping the stale attribute.
+    if not exe_path or not os.path.exists(exe_path):
+        return
+    try:
+        age = time.time() - os.path.getmtime(exe_path)
+    except OSError:
+        return
+    if age >= fresh_age:
+        return
+    tmp_path = exe_path + '.settle'
+    try:
+        subprocess.run(['cp', '-p', exe_path, tmp_path], check=True)
+        os.replace(tmp_path, exe_path)
+        # Bump the parent directory's mtime so clients re-read it.
+        os.utime(os.path.dirname(exe_path), None)
+    except (OSError, subprocess.CalledProcessError):
+        if os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+        time.sleep(min(fresh_age - age, fresh_age))
+        return
+    time.sleep(post_swap_sleep)
+
+
 class ELMcase():
   """Class to manage ELM case setup and execution"""
 
@@ -569,7 +604,8 @@ class ELMcase():
     #  os.system("./xmlchange CLM_BLDNML_OPTS = '" + xval + "'")
 
     # for spinup and transient runs, PIO_TYPENAME is pnetcdf, which now not works well
-    if('mac' in self.machine or 'cades' in self.machine or 'linux' in self.machine): 
+    if('mac' in self.machine or 'cades' in self.machine or 'linux' in self.machine \
+            or 'pflogin' in self.machine):
       self.xmlchange('PIO_TYPENAME',value='netcdf')
 
     if (self.has_finidat):
@@ -669,6 +705,12 @@ class ELMcase():
            self.tam = True
     if ('ad_spinup' in self.casename):    #Turn on supplemental P for ad spinup
         self.customize_namelist(variable='suplphos',value="'ALL'")
+
+    #ELMBuildNamelist errors if -methane is in ELM_BLDNML_OPTS but use_lch4=.false.
+    if self.case_options.get('use_lch4','') == '.false.':
+        cur = self.xmlquery('ELM_BLDNML_OPTS').strip()
+        if '-methane' in cur:
+            self.xmlchange('ELM_BLDNML_OPTS', value='"'+cur.replace('-methane','').strip()+'"')
 
     #set domain file information
     if (domainfile == ''):
@@ -952,6 +994,8 @@ class ELMcase():
           cmd = [mysubmit,scriptfile]
       else:
           cmd = [scriptfile]
+    if not self.noslurm:
+        _wait_for_exe_settle(os.path.join(self.exeroot, 'e3sm.exe'))
     if (self.noslurm):
         log_file_path='./case_submit.log'
         with open(log_file_path, "w") as log_file:
@@ -979,6 +1023,14 @@ class ELMcase():
             jobnum = int(m.group(1))
         print('\nSubmitted '+str(jobnum))
     os.chdir(self.OLMTdir)
+
+    # Pause between sequential case submissions sharing exeroot. Without this,
+    # the next compset's ./case.build re-links e3sm.exe while this job is still
+    # doing execve(), which fails with ETXTBSY ("Text file busy") and dies at
+    # exit 26 before any log is written. 30s is enough for all MPI ranks to
+    # finish mmap'ing the binary.
+    if not self.noslurm:
+        time.sleep(30)
 
     return jobnum
 
